@@ -17,7 +17,6 @@
         "open": true
       }
     },
-    "identifier": "com.influxdb.studio",
     "bundle": {
       "active": true,
       "category": "DeveloperTool",
