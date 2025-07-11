@@ -221,7 +221,7 @@ const editorOptions = {
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
   automaticLayout: true,
-  wordWrap: 'on'
+  wordWrap: 'on' as const
 }
 
 // 计算属性
