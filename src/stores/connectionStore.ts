@@ -21,6 +21,7 @@ export interface ConnectionStatus {
   status: 'connected' | 'disconnected' | 'connecting' | 'error'
   lastPing?: number
   error?: string
+  backendConnectionId?: string // 后端连接ID
 }
 
 // 连接状态管理存储
@@ -129,11 +130,45 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   const connectTo = async (id: string): Promise<boolean> => {
-    const success = await testConnection(id)
-    if (success) {
-      setActiveConnection(id)
+    const connection = connections.value.find(c => c.id === id)
+    if (!connection) return false
+
+    // 更新连接状态为连接中
+    connectionStatus.value[id] = {
+      id,
+      status: 'connecting'
     }
-    return success
+
+    try {
+      // 调用 Tauri 命令建立连接
+      const apiResponse = await invoke('connect_to_database', { config: connection }) as any
+      
+      // 检查 API 响应
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || '连接失败')
+      }
+      
+      const backendConnectionId = apiResponse.data as string
+      
+      // 更新连接状态，保存后端返回的连接ID
+      connectionStatus.value[id] = {
+        id,
+        status: 'connected',
+        lastPing: Date.now(),
+        backendConnectionId // 保存后端连接ID
+      }
+      
+      setActiveConnection(id)
+      return true
+    } catch (error) {
+      // 更新连接状态为错误
+      connectionStatus.value[id] = {
+        id,
+        status: 'error',
+        error: error instanceof Error ? error.message : '连接失败'
+      }
+      return false
+    }
   }
 
   const disconnectFrom = (id: string) => {

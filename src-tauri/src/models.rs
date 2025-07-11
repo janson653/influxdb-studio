@@ -11,6 +11,7 @@ pub struct ConnectionConfig {
     pub database: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
+    #[serde(rename = "useSsl")]
     pub use_ssl: bool,
     pub timeout: u64,
 }

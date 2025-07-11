@@ -22,5 +22,12 @@ app.use(ElementPlus)
 // 配置路由
 app.use(router)
 
+// 全局错误处理
+app.config.errorHandler = (err, instance, info) => {
+  console.error('全局错误:', err)
+  console.error('组件实例:', instance)
+  console.error('错误信息:', info)
+}
+
 // 挂载应用
 app.mount('#app') 

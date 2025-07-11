@@ -69,28 +69,22 @@ watch(() => route.path, (newPath) => {
 const handleMenuSelect = (key: string) => {
   console.log('菜单选择:', key)
   activeMenu.value = key
+  
   // 根据菜单项导航到不同路由
-  switch (key) {
-    case 'home':
-      console.log('导航到首页')
-      router.push('/home')
-      break
-    case 'connections':
-      console.log('导航到连接管理')
-      router.push('/connection')
-      break
-    case 'database':
-      console.log('导航到数据库浏览器')
-      router.push('/database')
-      break
-    case 'query':
-      console.log('导航到查询编辑器')
-      router.push('/query')
-      break
-    case 'settings':
-      console.log('导航到设置')
-      router.push('/settings')
-      break
+  const routeMap: Record<string, string> = {
+    'home': '/home',
+    'connections': '/connection',
+    'database': '/database',
+    'query': '/query',
+    'settings': '/settings'
+  }
+  
+  const targetRoute = routeMap[key]
+  if (targetRoute && route.path !== targetRoute) {
+    console.log(`导航到${targetRoute}`)
+    router.push(targetRoute).catch(err => {
+      console.warn('路由导航失败:', err)
+    })
   }
 }
 </script>

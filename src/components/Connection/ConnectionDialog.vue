@@ -168,19 +168,8 @@ const visible = computed({
 
 const isEdit = computed(() => !!props.connection)
 
-// 监听连接数据变化
-watch(() => props.connection, (newConnection) => {
-  if (newConnection) {
-    // 编辑模式，填充表单数据
-    Object.assign(form, newConnection)
-  } else {
-    // 新建模式，重置表单数据
-    resetForm()
-  }
-}, { immediate: true })
-
 // 方法
-const resetForm = () => {
+const resetFormData = () => {
   Object.assign(form, {
     id: '',
     name: '',
@@ -192,6 +181,21 @@ const resetForm = () => {
     useSsl: false,
     timeout: 5000
   })
+}
+
+// 监听连接数据变化
+watch(() => props.connection, (newConnection) => {
+  if (newConnection) {
+    // 编辑模式，填充表单数据
+    Object.assign(form, newConnection)
+  } else {
+    // 新建模式，重置表单数据
+    resetFormData()
+  }
+}, { immediate: true })
+
+const resetForm = () => {
+  resetFormData()
   
   // 清除表单验证
   formRef.value?.clearValidate()

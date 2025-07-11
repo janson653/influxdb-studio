@@ -54,17 +54,18 @@
               <div v-if="recentConnections.length === 0" class="empty-state">
                 <el-empty description="暂无连接记录" />
               </div>
-              <el-list v-else>
-                <el-list-item 
+              <div v-else class="connection-list">
+                <div 
                   v-for="connection in recentConnections" 
                   :key="connection.id"
+                  class="connection-item"
                   @click="connectTo(connection)"
                 >
                   <el-icon><Connection /></el-icon>
-                  <span>{{ connection.name }}</span>
+                  <span class="connection-name">{{ connection.name }}</span>
                   <span class="connection-info">{{ connection.host }}:{{ connection.port }}</span>
-                </el-list-item>
-              </el-list>
+                </div>
+              </div>
             </el-card>
           </el-col>
           
@@ -189,12 +190,30 @@ const connectTo = (connection: any) => {
   font-size: 0.9rem;
 }
 
-.el-list-item {
-  cursor: pointer;
-  padding: 10px 0;
+.connection-list {
+  padding: 0;
 }
 
-.el-list-item:hover {
+.connection-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.connection-item:last-child {
+  border-bottom: none;
+}
+
+.connection-item:hover {
   background-color: #f5f7fa;
+}
+
+.connection-name {
+  flex: 1;
+  font-weight: 500;
 }
 </style> 

@@ -80,7 +80,8 @@
                         size="small" 
                         type="primary" 
                         @click.stop="connectTo(row.id)"
-                        :disabled="getConnectionStatus(row.id) !== 'connected'"
+                        :loading="getConnectionStatus(row.id) === 'connecting'"
+                        :disabled="getConnectionStatus(row.id) === 'connecting'"
                       >
                         连接
                       </el-button>
@@ -140,7 +141,8 @@
                 <el-button 
                   type="primary" 
                   @click="connectTo(selectedConnection.id)"
-                  :disabled="getConnectionStatus(selectedConnection.id) !== 'connected'"
+                  :loading="getConnectionStatus(selectedConnection.id) === 'connecting'"
+                  :disabled="getConnectionStatus(selectedConnection.id) === 'connecting'"
                   style="width: 100%"
                 >
                   连接到数据库

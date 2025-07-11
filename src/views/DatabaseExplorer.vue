@@ -375,6 +375,11 @@ const showDeleteMeasurementDialog = async () => {
 onMounted(() => {
   if (!activeConnection.value) {
     ElMessage.warning('请先连接到数据库')
+  } else {
+    // 延迟加载数据，确保组件完全挂载
+    setTimeout(() => {
+      refreshData()
+    }, 100)
   }
 })
 </script>

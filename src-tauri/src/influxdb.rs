@@ -1,4 +1,5 @@
 use crate::models::{ConnectionConfig, QueryResult, DatabaseInfo, Series};
+use crate::error::AppError;
 use reqwest::Client;
 use serde_json::Value;
 
@@ -14,13 +15,14 @@ pub struct InfluxDbClient {
 
 impl InfluxDbClient {
     /// 创建新的 InfluxDB 客户端
-    pub async fn new(config: ConnectionConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(config: ConnectionConfig) -> Result<Self, AppError> {
         let protocol = if config.use_ssl { "https" } else { "http" };
         let base_url = format!("{}://{}:{}", protocol, config.host, config.port);
         
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout))
-            .build()?;
+            .build()
+            .map_err(|e| AppError::NetworkError(e.to_string()))?;
         
         Ok(Self {
             client,
@@ -32,14 +34,15 @@ impl InfluxDbClient {
     }
     
     /// 测试连接
-    pub async fn ping(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub async fn ping(&self) -> Result<bool, AppError> {
         let url = format!("{}/ping", self.base_url);
-        let response = self.client.get(&url).send().await?;
+        let response = self.client.get(&url).send().await
+            .map_err(|e| AppError::NetworkError(e.to_string()))?;
         Ok(response.status().is_success())
     }
     
     /// 获取数据库列表
-    pub async fn get_databases(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn get_databases(&self) -> Result<Vec<String>, AppError> {
         let query = "SHOW DATABASES";
         let result = self.query("", query).await?;
         
@@ -58,7 +61,7 @@ impl InfluxDbClient {
     }
     
     /// 获取数据库信息
-    pub async fn get_database_info(&self, database: &str) -> Result<DatabaseInfo, Box<dyn std::error::Error>> {
+    pub async fn get_database_info(&self, database: &str) -> Result<DatabaseInfo, AppError> {
         // 获取保留策略
         let rp_query = format!("SHOW RETENTION POLICIES ON {}", database);
         let rp_result = self.query(database, &rp_query).await?;
@@ -97,7 +100,7 @@ impl InfluxDbClient {
     }
     
     /// 执行查询
-    pub async fn query(&self, database: &str, query: &str) -> Result<QueryResult, Box<dyn std::error::Error>> {
+    pub async fn query(&self, database: &str, query: &str) -> Result<QueryResult, AppError> {
         let start = std::time::Instant::now();
         
         let url = format!("{}/query", self.base_url);
@@ -117,12 +120,14 @@ impl InfluxDbClient {
             .post(&url)
             .query(&params)
             .send()
-            .await?;
+            .await
+            .map_err(|e| AppError::NetworkError(e.to_string()))?;
         
         let status = response.status();
         
         if status.is_success() {
-            let response_text = response.text().await?;
+            let response_text = response.text().await
+                .map_err(|e| AppError::NetworkError(e.to_string()))?;
             let series = self.parse_query_response(&response_text)?;
             let execution_time = start.elapsed().as_millis() as u64;
             
@@ -132,26 +137,26 @@ impl InfluxDbClient {
             })
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            Err(format!("HTTP {}: {}", status, error_text).into())
+            Err(AppError::QueryError(format!("HTTP {}: {}", status, error_text)))
         }
     }
     
     /// 创建数据库
-    pub async fn create_database(&self, database: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    pub async fn create_database(&self, database: &str) -> Result<bool, AppError> {
         let query = format!("CREATE DATABASE \"{}\"", database);
         let _result = self.query("", &query).await?;
         Ok(true)
     }
     
     /// 删除数据库
-    pub async fn drop_database(&self, database: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    pub async fn drop_database(&self, database: &str) -> Result<bool, AppError> {
         let query = format!("DROP DATABASE \"{}\"", database);
         let _result = self.query("", &query).await?;
         Ok(true)
     }
     
     /// 获取测量值列表
-    pub async fn get_measurements(&self, database: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn get_measurements(&self, database: &str) -> Result<Vec<String>, AppError> {
         let query = format!("SHOW MEASUREMENTS ON {}", database);
         let result = self.query(database, &query).await?;
         
@@ -170,7 +175,7 @@ impl InfluxDbClient {
     }
     
     /// 获取标签键
-    pub async fn get_tag_keys(&self, database: &str, measurement: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn get_tag_keys(&self, database: &str, measurement: &str) -> Result<Vec<String>, AppError> {
         let query = format!("SHOW TAG KEYS FROM \"{}\"", measurement);
         let result = self.query(database, &query).await?;
         
@@ -189,7 +194,7 @@ impl InfluxDbClient {
     }
     
     /// 获取字段键
-    pub async fn get_field_keys(&self, database: &str, measurement: &str) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+    pub async fn get_field_keys(&self, database: &str, measurement: &str) -> Result<Vec<(String, String)>, AppError> {
         let query = format!("SHOW FIELD KEYS FROM \"{}\"", measurement);
         let result = self.query(database, &query).await?;
         
@@ -208,8 +213,9 @@ impl InfluxDbClient {
     }
     
     /// 解析查询响应
-    fn parse_query_response(&self, response_text: &str) -> Result<Vec<Series>, Box<dyn std::error::Error>> {
-        let json: Value = serde_json::from_str(response_text)?;
+    fn parse_query_response(&self, response_text: &str) -> Result<Vec<Series>, AppError> {
+        let json: Value = serde_json::from_str(response_text)
+            .map_err(|e| AppError::SerializationError(e.to_string()))?;
         
         if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
             if let Some(first_result) = results.first() {

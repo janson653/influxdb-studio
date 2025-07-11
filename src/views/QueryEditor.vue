@@ -356,6 +356,12 @@ watch(() => route.query, (query) => {
 onMounted(() => {
   if (!activeConnection.value) {
     ElMessage.warning('请先连接到数据库')
+  } else {
+    // 延迟初始化，确保组件完全挂载
+    setTimeout(() => {
+      // 初始化查询编辑器
+      console.log('查询编辑器初始化完成')
+    }, 100)
   }
 })
 </script>

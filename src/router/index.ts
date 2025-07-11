@@ -58,4 +58,16 @@ router.beforeEach((to, _from, next) => {
   next()
 })
 
+// 路由错误处理
+router.onError((error) => {
+  console.error('路由错误:', error)
+})
+
+// 处理路由导航失败
+router.afterEach((_to, _from, failure) => {
+  if (failure) {
+    console.error('路由导航失败:', failure)
+  }
+})
+
 export default router 

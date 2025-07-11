@@ -60,7 +60,7 @@ export const useQueryStore = defineStore('query', () => {
       const apiResponse = await invoke('execute_query', {
         query,
         database,
-        connectionId
+        connection_id: connectionId // 修正参数名
       }) as any
 
       // 检查 API 响应

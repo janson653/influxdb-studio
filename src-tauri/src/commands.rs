@@ -10,17 +10,46 @@ type ConnectionMap = Mutex<HashMap<String, InfluxDbClient>>;
 /// 测试连接
 #[tauri::command]
 pub async fn test_connection(config: ConnectionConfig) -> Result<ApiResponse<bool>, String> {
-    match InfluxDbClient::new(config).await {
-        Ok(_) => Ok(ApiResponse {
-            success: true,
-            data: Some(true),
-            error: None,
-        }),
-        Err(e) => Ok(ApiResponse {
-            success: false,
-            data: Some(false),
-            error: Some(e.to_string()),
-        }),
+    tracing::info!("Testing connection to {}:{}", config.host, config.port);
+    
+    match InfluxDbClient::new(config.clone()).await {
+        Ok(client) => {
+            // 尝试 ping 服务器
+            match client.ping().await {
+                Ok(true) => {
+                    tracing::info!("Connection test successful");
+                    Ok(ApiResponse {
+                        success: true,
+                        data: Some(true),
+                        error: None,
+                    })
+                },
+                Ok(false) => {
+                    tracing::warn!("Connection test failed - server not responding");
+                    Ok(ApiResponse {
+                        success: false,
+                        data: Some(false),
+                        error: Some("Server not responding".to_string()),
+                    })
+                },
+                Err(e) => {
+                    tracing::error!("Connection test failed: {}", e);
+                    Ok(ApiResponse {
+                        success: false,
+                        data: Some(false),
+                        error: Some(format!("Ping failed: {}", e)),
+                    })
+                }
+            }
+        },
+        Err(e) => {
+            tracing::error!("Failed to create client: {}", e);
+            Ok(ApiResponse {
+                success: false,
+                data: Some(false),
+                error: Some(format!("Failed to create client: {}", e)),
+            })
+        }
     }
 }
 
