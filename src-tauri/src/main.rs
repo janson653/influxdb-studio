@@ -33,6 +33,7 @@ fn main() {
     let connections: ConnectionMap = Mutex::new(HashMap::new());
     
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .manage(connections)
         .invoke_handler(tauri::generate_handler![
             test_connection,
