@@ -13,6 +13,10 @@ export interface ConnectionConfig {
   password?: string
   useSsl: boolean
   timeout: number
+  // InfluxDB 2.x 支持
+  token?: string
+  org?: string
+  bucket?: string
 }
 
 // 连接状态接口

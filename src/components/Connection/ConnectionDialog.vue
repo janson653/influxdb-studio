@@ -61,6 +61,32 @@
         />
       </el-form-item>
       
+      <!-- InfluxDB 2.x 配置 -->
+      <el-divider content-position="left">InfluxDB 2.x 配置</el-divider>
+      
+      <el-form-item label="Token" prop="token">
+        <el-input 
+          v-model="form.token" 
+          type="password"
+          placeholder="InfluxDB 2.x Token（可选）"
+          show-password
+        />
+      </el-form-item>
+      
+      <el-form-item label="组织(Org)" prop="org">
+        <el-input 
+          v-model="form.org" 
+          placeholder="InfluxDB 2.x 组织名称（可选）"
+        />
+      </el-form-item>
+      
+      <el-form-item label="存储桶(Bucket)" prop="bucket">
+        <el-input 
+          v-model="form.bucket" 
+          placeholder="InfluxDB 2.x 存储桶名称（可选）"
+        />
+      </el-form-item>
+      
       <el-form-item label="SSL/TLS" prop="useSsl">
         <el-switch 
           v-model="form.useSsl"
@@ -133,7 +159,11 @@ const form = reactive({
   username: '',
   password: '',
   useSsl: false,
-  timeout: 5000
+  timeout: 5000,
+  // InfluxDB 2.x 字段
+  token: '',
+  org: '',
+  bucket: ''
 })
 
 // 表单验证规则
@@ -179,7 +209,10 @@ const resetFormData = () => {
     username: '',
     password: '',
     useSsl: false,
-    timeout: 5000
+    timeout: 5000,
+    token: '',
+    org: '',
+    bucket: ''
   })
 }
 
@@ -229,7 +262,10 @@ const handleSubmit = async () => {
       username: form.username || undefined,
       password: form.password || undefined,
       useSsl: form.useSsl,
-      timeout: form.timeout
+      timeout: form.timeout,
+      token: form.token || undefined,
+      org: form.org || undefined,
+      bucket: form.bucket || undefined
     }
     
     // 触发保存事件

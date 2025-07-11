@@ -14,6 +14,10 @@ pub struct ConnectionConfig {
     #[serde(rename = "useSsl")]
     pub use_ssl: bool,
     pub timeout: u64,
+    // InfluxDB 2.x 支持
+    pub token: Option<String>,
+    pub org: Option<String>,
+    pub bucket: Option<String>,
 }
 
 /// API 响应结构

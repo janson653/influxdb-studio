@@ -11,6 +11,10 @@ pub struct InfluxDbClient {
     base_url: String,
     username: Option<String>,
     password: Option<String>,
+    // InfluxDB 2.x 支持
+    token: Option<String>,
+    org: Option<String>,
+    is_v2: bool,
 }
 
 impl InfluxDbClient {
@@ -24,12 +28,18 @@ impl InfluxDbClient {
             .build()
             .map_err(|e| AppError::NetworkError(e.to_string()))?;
         
+        // 检测是否为 InfluxDB 2.x (有 token 字段)
+        let is_v2 = config.token.is_some();
+        
         Ok(Self {
             client,
             config: config.clone(),
             base_url,
             username: config.username,
             password: config.password,
+            token: config.token,
+            org: config.org,
+            is_v2,
         })
     }
     
@@ -103,11 +113,26 @@ impl InfluxDbClient {
     pub async fn query(&self, database: &str, query: &str) -> Result<QueryResult, AppError> {
         let start = std::time::Instant::now();
         
+        // 添加调试日志
+        tracing::info!("Executing query: {} on database: {}", query, database);
+        tracing::info!("InfluxDB version: {}", if self.is_v2 { "2.x" } else { "1.x" });
+        
+        if self.is_v2 {
+            self.query_v2(database, query, start).await
+        } else {
+            self.query_v1(database, query, start).await
+        }
+    }
+    
+    /// InfluxDB 1.x 查询
+    async fn query_v1(&self, database: &str, query: &str, start: std::time::Instant) -> Result<QueryResult, AppError> {
         let url = format!("{}/query", self.base_url);
         let mut params = vec![
             ("db", database),
             ("q", query),
         ];
+        
+        tracing::info!("Username: {:?}, Password: {:?}", self.username, self.password.as_ref().map(|_| "***"));
         
         if let Some(username) = &self.username {
             params.push(("u", username));
@@ -128,7 +153,7 @@ impl InfluxDbClient {
         if status.is_success() {
             let response_text = response.text().await
                 .map_err(|e| AppError::NetworkError(e.to_string()))?;
-            let series = self.parse_query_response(&response_text)?;
+            let series = self.parse_query_response_v1(&response_text)?;
             let execution_time = start.elapsed().as_millis() as u64;
             
             Ok(QueryResult {
@@ -139,6 +164,91 @@ impl InfluxDbClient {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             Err(AppError::QueryError(format!("HTTP {}: {}", status, error_text)))
         }
+    }
+    
+    /// InfluxDB 2.x 查询
+    async fn query_v2(&self, _database: &str, query: &str, start: std::time::Instant) -> Result<QueryResult, AppError> {
+        let org = self.org.as_ref().ok_or_else(|| AppError::ConfigError("InfluxDB 2.x requires org parameter".to_string()))?;
+        let token = self.token.as_ref().ok_or_else(|| AppError::ConfigError("InfluxDB 2.x requires token parameter".to_string()))?;
+        
+        // 构建带有 org 参数的 URL
+        let url = format!("{}/api/v2/query?org={}", self.base_url, org);
+        
+        tracing::info!("Org: {}, Token: {}", org, "***");
+        tracing::info!("Request URL: {}", url);
+        
+        // InfluxDB 2.x 使用 Flux 查询语言
+        let flux_query = if query.to_uppercase().starts_with("SHOW DATABASES") {
+            // 转换 SHOW DATABASES 为 Flux 查询
+            format!("buckets() |> rename(columns: {{name: \"name\"}}) |> keep(columns: [\"name\"])")
+        } else if query.to_uppercase().starts_with("SHOW MEASUREMENTS") {
+            // 转换 SHOW MEASUREMENTS 为 Flux 查询
+            let default_bucket = "mybucket".to_string();
+            let bucket = self.config.bucket.as_ref().unwrap_or(&default_bucket);
+            format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{}\")", bucket)
+        } else {
+            // 尝试将 SQL 转换为 Flux（简化版本）
+            self.convert_sql_to_flux(query)?
+        };
+        
+        tracing::info!("Flux query: {}", flux_query);
+        
+        // 使用 Content-Type: application/vnd.flux 并直接发送 Flux 查询
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Token {}", token))
+            .header("Content-Type", "application/vnd.flux")
+            .header("Accept", "application/csv")
+            .body(flux_query)
+            .send()
+            .await
+            .map_err(|e| AppError::NetworkError(e.to_string()))?;
+        
+        let status = response.status();
+        
+        if status.is_success() {
+            let response_text = response.text().await
+                .map_err(|e| AppError::NetworkError(e.to_string()))?;
+            tracing::info!("Response: {}", response_text);
+            let series = self.parse_query_response_v2(&response_text)?;
+            let execution_time = start.elapsed().as_millis() as u64;
+            
+            Ok(QueryResult {
+                series,
+                execution_time,
+            })
+        } else {
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("Query failed: HTTP {}: {}", status, error_text);
+            Err(AppError::QueryError(format!("HTTP {}: {}", status, error_text)))
+        }
+    }
+    
+    /// 简单的 SQL 到 Flux 转换
+    fn convert_sql_to_flux(&self, sql: &str) -> Result<String, AppError> {
+        let default_bucket = "mybucket".to_string();
+        let bucket = self.config.bucket.as_ref().unwrap_or(&default_bucket);
+        
+        // 简化版本：只处理基本的 SELECT 语句
+        if sql.to_uppercase().contains("SELECT") && sql.to_uppercase().contains("FROM") {
+            // 提取表名
+            let parts: Vec<&str> = sql.split_whitespace().collect();
+            if let Some(from_idx) = parts.iter().position(|&x| x.to_uppercase() == "FROM") {
+                if let Some(table) = parts.get(from_idx + 1) {
+                    let measurement = table.trim_matches(|c| c == '"' || c == '`');
+                    return Ok(format!(
+                        "from(bucket: \"{}\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"{}\")\n  |> limit(n: 10)",
+                        bucket, measurement
+                    ));
+                }
+            }
+        }
+        
+        // 默认查询
+        Ok(format!(
+            "from(bucket: \"{}\")\n  |> range(start: -1h)\n  |> limit(n: 10)",
+            bucket
+        ))
     }
     
     /// 创建数据库
@@ -212,8 +322,8 @@ impl InfluxDbClient {
         Ok(field_keys)
     }
     
-    /// 解析查询响应
-    fn parse_query_response(&self, response_text: &str) -> Result<Vec<Series>, AppError> {
+    /// 解析查询响应 (InfluxDB 1.x)
+    fn parse_query_response_v1(&self, response_text: &str) -> Result<Vec<Series>, AppError> {
         let json: Value = serde_json::from_str(response_text)
             .map_err(|e| AppError::SerializationError(e.to_string()))?;
         
@@ -253,5 +363,63 @@ impl InfluxDbClient {
         }
         
         Ok(Vec::new())
+    }
+    
+    /// 解析查询响应 (InfluxDB 2.x)
+    fn parse_query_response_v2(&self, response_text: &str) -> Result<Vec<Series>, AppError> {
+        // InfluxDB 2.x 返回 CSV 格式的数据
+        let mut series = Vec::new();
+        let lines: Vec<&str> = response_text.lines().collect();
+        
+        if lines.is_empty() {
+            return Ok(series);
+        }
+        
+        // 跳过注释行，找到表头
+        let mut header_line = None;
+        let mut data_start = 0;
+        
+        for (i, line) in lines.iter().enumerate() {
+            if !line.starts_with('#') && !line.trim().is_empty() {
+                header_line = Some(line);
+                data_start = i + 1;
+                break;
+            }
+        }
+        
+        if let Some(header) = header_line {
+            let columns: Vec<String> = header.split(',').map(|s| s.trim().to_string()).collect();
+            let mut values = Vec::new();
+            
+            // 解析数据行
+            for line in lines.iter().skip(data_start) {
+                if !line.starts_with('#') && !line.trim().is_empty() {
+                    let row: Vec<serde_json::Value> = line
+                        .split(',')
+                        .map(|s| {
+                            let trimmed = s.trim();
+                            // 尝试解析为数字，否则作为字符串
+                            if let Ok(num) = trimmed.parse::<f64>() {
+                                serde_json::Value::Number(serde_json::Number::from_f64(num).unwrap_or(serde_json::Number::from(0)))
+                            } else {
+                                serde_json::Value::String(trimmed.to_string())
+                            }
+                        })
+                        .collect();
+                    values.push(row);
+                }
+            }
+            
+            if !values.is_empty() {
+                series.push(Series {
+                    name: "result".to_string(),
+                    columns,
+                    values,
+                    tags: None,
+                });
+            }
+        }
+        
+        Ok(series)
     }
 } 

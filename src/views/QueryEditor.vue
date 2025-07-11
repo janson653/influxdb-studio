@@ -191,6 +191,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { VideoPlay } from '@element-plus/icons-vue'
+import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'
 import { useQueryStore } from '../stores/queryStore'
 import type { QueryResult } from '../stores/queryStore'
@@ -211,8 +212,8 @@ const queryResults = ref<QueryResult | null>(null)
 const activeResultTab = ref('table')
 const showHistory = ref(false)
 
-// 数据库列表（模拟数据）
-const databases = ref(['test_db', 'system', 'monitoring'])
+// 数据库列表
+const databases = ref<string[]>([])
 
 // Monaco Editor 配置
 const editorOptions = {
@@ -275,12 +276,21 @@ const executeQuery = async () => {
     return
   }
   
+  // 获取后端连接ID
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) {
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
+  
   try {
     isExecuting.value = true
     const result = await queryStore.executeQuery(
       currentQuery.value,
       selectedDatabase.value,
-      activeConnection.value.id
+      backendConnectionId
     )
     
     queryResults.value = result
@@ -342,6 +352,31 @@ const formatTime = (timestamp: Date) => {
   return timestamp.toLocaleString()
 }
 
+const loadDatabases = async () => {
+  if (!activeConnection.value) return
+  
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) return
+  
+  try {
+    const response = await invoke('get_databases', { 
+      connectionId: backendConnectionId 
+    }) as any
+    
+    if (response.success && response.data) {
+      databases.value = response.data
+      // 如果没有选中数据库，默认选择第一个
+      if (!selectedDatabase.value && databases.value.length > 0) {
+        selectedDatabase.value = databases.value[0]
+      }
+    }
+  } catch (error) {
+    console.error('获取数据库列表失败:', error)
+  }
+}
+
 // 监听路由参数
 watch(() => route.query, (query) => {
   if (query.database) {
@@ -349,6 +384,16 @@ watch(() => route.query, (query) => {
   }
   if (query.measurement) {
     currentQuery.value = `SELECT * FROM ${query.measurement} LIMIT 10`
+  }
+}, { immediate: true })
+
+// 监听连接状态变化
+watch(() => activeConnection.value, (connection) => {
+  if (connection) {
+    loadDatabases()
+  } else {
+    databases.value = []
+    selectedDatabase.value = ''
   }
 }, { immediate: true })
 
