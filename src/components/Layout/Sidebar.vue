@@ -36,30 +36,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Connection, Search, House, DataAnalysis, Setting } from '@element-plus/icons-vue'
 
 const router = useRouter()
-const activeMenu = ref('connections')
+const route = useRoute()
+const activeMenu = ref('home')
+
+// 监听路由变化，更新激活菜单项
+watch(() => route.path, (newPath) => {
+  console.log('当前路由路径:', newPath)
+  switch (newPath) {
+    case '/home':
+      activeMenu.value = 'home'
+      break
+    case '/connection':
+      activeMenu.value = 'connections'
+      break
+    case '/database':
+      activeMenu.value = 'database'
+      break
+    case '/query':
+      activeMenu.value = 'query'
+      break
+    case '/settings':
+      activeMenu.value = 'settings'
+      break
+  }
+}, { immediate: true })
 
 const handleMenuSelect = (key: string) => {
+  console.log('菜单选择:', key)
   activeMenu.value = key
   // 根据菜单项导航到不同路由
   switch (key) {
     case 'home':
-      router.push('/')
+      console.log('导航到首页')
+      router.push('/home')
       break
     case 'connections':
+      console.log('导航到连接管理')
       router.push('/connection')
       break
     case 'database':
+      console.log('导航到数据库浏览器')
       router.push('/database')
       break
     case 'query':
+      console.log('导航到查询编辑器')
       router.push('/query')
       break
     case 'settings':
+      console.log('导航到设置')
       router.push('/settings')
       break
   }

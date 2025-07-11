@@ -112,6 +112,7 @@ const recentConnections = ref([
 
 // 导航方法
 const navigateTo = (path: string) => {
+  console.log('Home页面导航到:', path)
   router.push(path)
 }
 
