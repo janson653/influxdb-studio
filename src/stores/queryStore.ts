@@ -6,7 +6,7 @@ import { invoke } from '@tauri-apps/api/core'
 export interface QueryResult {
   series: Series[]
   error?: string
-  executionTime: number
+  execution_time: number  // 修改为与后端匹配的字段名
 }
 
 // 系列数据接口
@@ -57,12 +57,19 @@ export const useQueryStore = defineStore('query', () => {
 
     try {
       // 调用 Tauri 命令执行查询
-      const result = await invoke('execute_query', {
+      const apiResponse = await invoke('execute_query', {
         query,
         database,
         connectionId
-      }) as QueryResult
+      }) as any
 
+      // 检查 API 响应
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || '查询执行失败')
+      }
+
+      const result = apiResponse.data as QueryResult
+      
       // 计算执行时间
       const executionTime = Date.now() - startTime
 
@@ -89,7 +96,7 @@ export const useQueryStore = defineStore('query', () => {
       const errorResult: QueryResult = {
         series: [],
         error: error instanceof Error ? error.message : '查询执行失败',
-        executionTime: Date.now() - startTime
+        execution_time: Date.now() - startTime
       }
       
       queryResults.value = errorResult

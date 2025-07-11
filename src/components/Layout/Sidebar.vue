@@ -11,13 +11,25 @@
       :default-active="activeMenu"
       @select="handleMenuSelect"
     >
+      <el-menu-item index="home">
+        <el-icon><House /></el-icon>
+        <span>首页</span>
+      </el-menu-item>
       <el-menu-item index="connections">
         <el-icon><Connection /></el-icon>
         <span>连接管理</span>
       </el-menu-item>
+      <el-menu-item index="database">
+        <el-icon><DataAnalysis /></el-icon>
+        <span>数据库浏览器</span>
+      </el-menu-item>
       <el-menu-item index="query">
         <el-icon><Search /></el-icon>
         <span>查询编辑器</span>
+      </el-menu-item>
+      <el-menu-item index="settings">
+        <el-icon><Setting /></el-icon>
+        <span>设置</span>
       </el-menu-item>
     </el-menu>
   </el-aside>
@@ -26,7 +38,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Connection, Search } from '@element-plus/icons-vue'
+import { Connection, Search, House, DataAnalysis, Setting } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const activeMenu = ref('connections')
@@ -35,11 +47,20 @@ const handleMenuSelect = (key: string) => {
   activeMenu.value = key
   // 根据菜单项导航到不同路由
   switch (key) {
+    case 'home':
+      router.push('/')
+      break
     case 'connections':
-      router.push('/connections')
+      router.push('/connection')
+      break
+    case 'database':
+      router.push('/database')
       break
     case 'query':
       router.push('/query')
+      break
+    case 'settings':
+      router.push('/settings')
       break
   }
 }

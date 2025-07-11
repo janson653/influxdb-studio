@@ -118,7 +118,7 @@
                 <div v-else class="results-content">
                   <div class="results-info">
                     <el-tag type="info">
-                      执行时间: {{ queryResults.executionTime }}ms
+                      执行时间: {{ queryResults.execution_time }}ms
                     </el-tag>
                     <el-tag type="success">
                       结果数量: {{ getTotalResults() }}

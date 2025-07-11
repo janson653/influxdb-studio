@@ -99,7 +99,14 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       // 调用 Tauri 命令测试连接
-      const result = await invoke('test_connection', { config: connection })
+      const apiResponse = await invoke('test_connection', { config: connection }) as any
+      
+      // 检查 API 响应
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || '连接测试失败')
+      }
+      
+      const result = apiResponse.data as boolean
       
       // 更新连接状态
       connectionStatus.value[id] = {
@@ -109,7 +116,7 @@ export const useConnectionStore = defineStore('connection', () => {
         error: result ? undefined : '连接失败'
       }
       
-      return result as boolean
+      return result
     } catch (error) {
       // 更新连接状态为错误
       connectionStatus.value[id] = {
