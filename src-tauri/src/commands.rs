@@ -37,7 +37,7 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<ApiResponse<boo
                     Ok(ApiResponse {
                         success: false,
                         data: Some(false),
-                        error: Some(format!("Ping failed: {}", e)),
+                        error: Some(format!("Ping failed: {e}")),
                     })
                 }
             }
@@ -47,7 +47,7 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<ApiResponse<boo
             Ok(ApiResponse {
                 success: false,
                 data: Some(false),
-                error: Some(format!("Failed to create client: {}", e)),
+                error: Some(format!("Failed to create client: {e}")),
             })
         }
     }

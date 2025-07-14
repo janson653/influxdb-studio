@@ -26,7 +26,7 @@ impl InfluxDbClient {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout))
             .build()
-            .map_err(|e| AppError::NetworkError(e.to_string()))?;
+            .map_err(|e| AppError::Network(e.to_string()))?;
         
         // 检测是否为 InfluxDB 2.x (有 token 字段)
         let is_v2 = config.token.is_some();
@@ -47,7 +47,7 @@ impl InfluxDbClient {
     pub async fn ping(&self) -> Result<bool, AppError> {
         let url = format!("{}/ping", self.base_url);
         let response = self.client.get(&url).send().await
-            .map_err(|e| AppError::NetworkError(e.to_string()))?;
+            .map_err(|e| AppError::Network(e.to_string()))?;
         Ok(response.status().is_success())
     }
     
@@ -73,7 +73,7 @@ impl InfluxDbClient {
     /// 获取数据库信息
     pub async fn get_database_info(&self, database: &str) -> Result<DatabaseInfo, AppError> {
         // 获取保留策略
-        let rp_query = format!("SHOW RETENTION POLICIES ON {}", database);
+        let rp_query = format!("SHOW RETENTION POLICIES ON {database}");
         let rp_result = self.query(database, &rp_query).await?;
         
         let mut retention_policies = Vec::new();
@@ -146,13 +146,13 @@ impl InfluxDbClient {
             .query(&params)
             .send()
             .await
-            .map_err(|e| AppError::NetworkError(e.to_string()))?;
+            .map_err(|e| AppError::Network(e.to_string()))?;
         
         let status = response.status();
         
         if status.is_success() {
             let response_text = response.text().await
-                .map_err(|e| AppError::NetworkError(e.to_string()))?;
+                .map_err(|e| AppError::Network(e.to_string()))?;
             let series = self.parse_query_response_v1(&response_text)?;
             let execution_time = start.elapsed().as_millis() as u64;
             
@@ -162,17 +162,17 @@ impl InfluxDbClient {
             })
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            Err(AppError::QueryError(format!("HTTP {}: {}", status, error_text)))
+            Err(AppError::Query(format!("HTTP {status}: {error_text}")))
         }
     }
     
     /// InfluxDB 2.x 查询
     async fn query_v2(&self, _database: &str, query: &str, start: std::time::Instant) -> Result<QueryResult, AppError> {
-        let org = self.org.as_ref().ok_or_else(|| AppError::ConfigError("InfluxDB 2.x requires org parameter".to_string()))?;
-        let token = self.token.as_ref().ok_or_else(|| AppError::ConfigError("InfluxDB 2.x requires token parameter".to_string()))?;
+        let org = self.org.as_ref().ok_or_else(|| AppError::Config("InfluxDB 2.x requires org parameter".to_string()))?;
+        let token = self.token.as_ref().ok_or_else(|| AppError::Config("InfluxDB 2.x requires token parameter".to_string()))?;
         
         // 构建带有 org 参数的 URL
-        let url = format!("{}/api/v2/query?org={}", self.base_url, org);
+        let url = format!("{}/api/v2/query?org={org}", self.base_url);
         
         tracing::info!("Org: {}, Token: {}", org, "***");
         tracing::info!("Request URL: {}", url);
@@ -180,12 +180,12 @@ impl InfluxDbClient {
         // InfluxDB 2.x 使用 Flux 查询语言
         let flux_query = if query.to_uppercase().starts_with("SHOW DATABASES") {
             // 转换 SHOW DATABASES 为 Flux 查询
-            format!("buckets() |> rename(columns: {{name: \"name\"}}) |> keep(columns: [\"name\"])")
+            "buckets() |> rename(columns: {name: \"name\"}) |> keep(columns: [\"name\"])".to_string()
         } else if query.to_uppercase().starts_with("SHOW MEASUREMENTS") {
             // 转换 SHOW MEASUREMENTS 为 Flux 查询
             let default_bucket = "mybucket".to_string();
             let bucket = self.config.bucket.as_ref().unwrap_or(&default_bucket);
-            format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{}\")", bucket)
+            format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{bucket}\")")
         } else {
             // 尝试将 SQL 转换为 Flux（简化版本）
             self.convert_sql_to_flux(query)?
@@ -196,19 +196,19 @@ impl InfluxDbClient {
         // 使用 Content-Type: application/vnd.flux 并直接发送 Flux 查询
         let response = self.client
             .post(&url)
-            .header("Authorization", format!("Token {}", token))
+            .header("Authorization", format!("Token {token}"))
             .header("Content-Type", "application/vnd.flux")
             .header("Accept", "application/csv")
             .body(flux_query)
             .send()
             .await
-            .map_err(|e| AppError::NetworkError(e.to_string()))?;
+            .map_err(|e| AppError::Network(e.to_string()))?;
         
         let status = response.status();
         
         if status.is_success() {
             let response_text = response.text().await
-                .map_err(|e| AppError::NetworkError(e.to_string()))?;
+                .map_err(|e| AppError::Network(e.to_string()))?;
             tracing::info!("Response: {}", response_text);
             let series = self.parse_query_response_v2(&response_text)?;
             let execution_time = start.elapsed().as_millis() as u64;
@@ -220,7 +220,7 @@ impl InfluxDbClient {
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             tracing::error!("Query failed: HTTP {}: {}", status, error_text);
-            Err(AppError::QueryError(format!("HTTP {}: {}", status, error_text)))
+            Err(AppError::Query(format!("HTTP {status}: {error_text}")))
         }
     }
     
@@ -237,8 +237,7 @@ impl InfluxDbClient {
                 if let Some(table) = parts.get(from_idx + 1) {
                     let measurement = table.trim_matches(|c| c == '"' || c == '`');
                     return Ok(format!(
-                        "from(bucket: \"{}\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"{}\")\n  |> limit(n: 10)",
-                        bucket, measurement
+                        "from(bucket: \"{bucket}\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"{measurement}\")\n  |> limit(n: 10)"
                     ));
                 }
             }
@@ -246,34 +245,33 @@ impl InfluxDbClient {
         
         // 默认查询
         Ok(format!(
-            "from(bucket: \"{}\")\n  |> range(start: -1h)\n  |> limit(n: 10)",
-            bucket
+            "from(bucket: \"{bucket}\")\n  |> range(start: -1h)\n  |> limit(n: 10)"
         ))
     }
     
     /// 创建数据库
     pub async fn create_database(&self, database: &str) -> Result<bool, AppError> {
-        let query = format!("CREATE DATABASE \"{}\"", database);
+        let query = format!("CREATE DATABASE \"{database}\"");
         let _result = self.query("", &query).await?;
         Ok(true)
     }
     
     /// 删除数据库
     pub async fn drop_database(&self, database: &str) -> Result<bool, AppError> {
-        let query = format!("DROP DATABASE \"{}\"", database);
+        let query = format!("DROP DATABASE \"{database}\"");
         let _result = self.query("", &query).await?;
         Ok(true)
     }
     
     /// 获取测量值列表
     pub async fn get_measurements(&self, database: &str) -> Result<Vec<String>, AppError> {
-        let query = format!("SHOW MEASUREMENTS ON {}", database);
+        let query = format!("SHOW MEASUREMENTS ON {database}");
         let result = self.query(database, &query).await?;
         
         let mut measurements = Vec::new();
         for series in result.series {
             for row in series.values {
-                if let Some(measurement_name) = row.get(0) {
+                if let Some(measurement_name) = row.first() {
                     if let Some(name) = measurement_name.as_str() {
                         measurements.push(name.to_string());
                     }
@@ -284,48 +282,10 @@ impl InfluxDbClient {
         Ok(measurements)
     }
     
-    /// 获取标签键
-    pub async fn get_tag_keys(&self, database: &str, measurement: &str) -> Result<Vec<String>, AppError> {
-        let query = format!("SHOW TAG KEYS FROM \"{}\"", measurement);
-        let result = self.query(database, &query).await?;
-        
-        let mut tag_keys = Vec::new();
-        for series in result.series {
-            for row in series.values {
-                if let Some(tag_key) = row.get(1) {
-                    if let Some(key) = tag_key.as_str() {
-                        tag_keys.push(key.to_string());
-                    }
-                }
-            }
-        }
-        
-        Ok(tag_keys)
-    }
-    
-    /// 获取字段键
-    pub async fn get_field_keys(&self, database: &str, measurement: &str) -> Result<Vec<(String, String)>, AppError> {
-        let query = format!("SHOW FIELD KEYS FROM \"{}\"", measurement);
-        let result = self.query(database, &query).await?;
-        
-        let mut field_keys = Vec::new();
-        for series in result.series {
-            for row in series.values {
-                if row.len() >= 2 {
-                    let field_name = row[0].as_str().unwrap_or("").to_string();
-                    let field_type = row[1].as_str().unwrap_or("").to_string();
-                    field_keys.push((field_name, field_type));
-                }
-            }
-        }
-        
-        Ok(field_keys)
-    }
-    
     /// 解析查询响应 (InfluxDB 1.x)
     fn parse_query_response_v1(&self, response_text: &str) -> Result<Vec<Series>, AppError> {
         let json: Value = serde_json::from_str(response_text)
-            .map_err(|e| AppError::SerializationError(e.to_string()))?;
+            .map_err(|e| AppError::Serialization(e.to_string()))?;
         
         if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
             if let Some(first_result) = results.first() {
@@ -345,7 +305,7 @@ impl InfluxDbClient {
                             
                             let values: Vec<Vec<serde_json::Value>> = values
                                 .iter()
-                                .filter_map(|v| v.as_array().map(|arr| arr.clone()))
+                                .filter_map(|v| v.as_array().cloned())
                                 .collect();
                             
                             result_series.push(Series {
@@ -412,7 +372,7 @@ impl InfluxDbClient {
             
             if !values.is_empty() {
                 series.push(Series {
-                    name: "result".to_string(),
+                    name: "results".to_string(),
                     columns,
                     values,
                     tags: None,
