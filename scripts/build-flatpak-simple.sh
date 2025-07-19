@@ -40,39 +40,6 @@ check_dependencies() {
         exit 1
     fi
     
-    # 检查 appstream-compose
-    if ! command -v appstream-compose &> /dev/null; then
-        print_warning "appstream-compose 未安装，正在尝试安装..."
-        
-        # 尝试不同的包管理器安装 appstream-compose
-        if command -v apt &> /dev/null; then
-            print_info "使用 apt 安装 appstream-compose..."
-            sudo apt update && sudo apt install -y appstream-compose
-        elif command -v dnf &> /dev/null; then
-            print_info "使用 dnf 安装 appstream-compose..."
-            sudo dnf install -y appstream-compose
-        elif command -v pacman &> /dev/null; then
-            print_info "使用 pacman 安装 appstream-compose..."
-            sudo pacman -S appstream-compose
-        elif command -v zypper &> /dev/null; then
-            print_info "使用 zypper 安装 appstream-compose..."
-            sudo zypper install appstream-compose
-        else
-            print_error "无法自动安装 appstream-compose，请手动安装："
-            print_error "Ubuntu/Debian: sudo apt install appstream-compose"
-            print_error "Fedora: sudo dnf install appstream-compose"
-            print_error "Arch: sudo pacman -S appstream-compose"
-            print_error "openSUSE: sudo zypper install appstream-compose"
-            exit 1
-        fi
-        
-        # 再次检查是否安装成功
-        if ! command -v appstream-compose &> /dev/null; then
-            print_error "appstream-compose 安装失败，请手动安装后重试"
-            exit 1
-        fi
-    fi
-    
     print_info "所有依赖检查通过"
 }
 
@@ -97,9 +64,9 @@ build_tauri_app() {
     print_info "Tauri 应用构建完成"
 }
 
-# 构建 Flatpak 包
-build_flatpak() {
-    print_info "构建 Flatpak 包..."
+# 构建 Flatpak 包（简化版本）
+build_flatpak_simple() {
+    print_info "构建 Flatpak 包（简化版本）..."
     
     cd flatpak
     
@@ -114,12 +81,12 @@ build_flatpak() {
     if ! flatpak list | grep -q "org.gnome.Platform"; then
         print_info "安装 GNOME Platform 运行时..."
         # 尝试安装最新稳定版本
+        flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
         flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-        flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y || \
-        flatpak install flathub org.gnome.Platform//43 org.gnome.Sdk//43 -y
+        flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
     fi
     
-    # 构建 Flatpak 包
+    # 构建 Flatpak 包（不使用 appstream-compose）
     flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
     
     # 创建 Flatpak 包文件
@@ -140,11 +107,11 @@ cleanup() {
 
 # 主函数
 main() {
-    print_info "开始构建 InfluxDB Studio Flatpak 包..."
+    print_info "开始构建 InfluxDB Studio Flatpak 包（简化版本）..."
     
     check_dependencies
     build_tauri_app
-    build_flatpak
+    build_flatpak_simple
     
     print_info "构建完成！"
     print_info "Flatpak 包位置: flatpak/influxdb-studio.flatpak"
@@ -160,7 +127,7 @@ case "${1:-}" in
         echo "用法: $0 [clean|help]"
         echo "  clean: 清理构建文件"
         echo "  help:  显示帮助信息"
-        echo "  无参数: 构建 Flatpak 包"
+        echo "  无参数: 构建 Flatpak 包（简化版本，无需 appstream-compose）"
         ;;
     "")
         main

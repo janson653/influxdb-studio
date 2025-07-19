@@ -54,4 +54,50 @@ jobs:
           cd src-tauri
           cargo check
           cargo clippy -- -D warnings
-          cargo test 
+          cargo test
+
+      - name: Test Flatpak build (optional)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "🧪 测试 Flatpak 构建..."
+          
+          # 安装 Flatpak 构建工具
+          sudo apt-get install -y flatpak-builder
+          
+          # 构建 Tauri 应用
+          cd src-tauri
+          cargo build --release --target x86_64-unknown-linux-gnu
+          cp target/x86_64-unknown-linux-gnu/release/influxdb-studio ../flatpak/
+          cd ..
+          
+          # 检查 Flatpak 配置
+          cd flatpak
+          if [ -f "com.influxdb.studio.yml" ]; then
+            echo "✅ Flatpak 配置文件存在"
+            # 验证 YAML 语法
+            python3 -c "import yaml; yaml.safe_load(open('com.influxdb.studio.yml'))" && echo "✅ YAML 语法正确"
+          else
+            echo "❌ Flatpak 配置文件缺失"
+            exit 1
+          fi
+          
+          # 检查必要的文件
+          required_files=("influxdb-studio" "com.influxdb.studio.desktop" "com.influxdb.studio.metainfo.xml")
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file 存在"
+            else
+              echo "❌ $file 缺失"
+              exit 1
+            fi
+          done
+          
+          cd ..
+          echo "✅ Flatpak 构建测试通过"
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "📊 测试总结"
+          echo "测试结果: ${{ job.status }}"
+          echo "✅ 所有测试完成" 

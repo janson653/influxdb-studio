@@ -6,9 +6,9 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 打印带颜色的消息
 print_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
@@ -19,6 +19,10 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+print_debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $1"
 }
 
 # 检查依赖
@@ -38,39 +42,6 @@ check_dependencies() {
     if ! command -v pnpm &> /dev/null; then
         print_error "pnpm 未安装，请先安装 pnpm"
         exit 1
-    fi
-    
-    # 检查 appstream-compose
-    if ! command -v appstream-compose &> /dev/null; then
-        print_warning "appstream-compose 未安装，正在尝试安装..."
-        
-        # 尝试不同的包管理器安装 appstream-compose
-        if command -v apt &> /dev/null; then
-            print_info "使用 apt 安装 appstream-compose..."
-            sudo apt update && sudo apt install -y appstream-compose
-        elif command -v dnf &> /dev/null; then
-            print_info "使用 dnf 安装 appstream-compose..."
-            sudo dnf install -y appstream-compose
-        elif command -v pacman &> /dev/null; then
-            print_info "使用 pacman 安装 appstream-compose..."
-            sudo pacman -S appstream-compose
-        elif command -v zypper &> /dev/null; then
-            print_info "使用 zypper 安装 appstream-compose..."
-            sudo zypper install appstream-compose
-        else
-            print_error "无法自动安装 appstream-compose，请手动安装："
-            print_error "Ubuntu/Debian: sudo apt install appstream-compose"
-            print_error "Fedora: sudo dnf install appstream-compose"
-            print_error "Arch: sudo pacman -S appstream-compose"
-            print_error "openSUSE: sudo zypper install appstream-compose"
-            exit 1
-        fi
-        
-        # 再次检查是否安装成功
-        if ! command -v appstream-compose &> /dev/null; then
-            print_error "appstream-compose 安装失败，请手动安装后重试"
-            exit 1
-        fi
     fi
     
     print_info "所有依赖检查通过"
@@ -97,9 +68,9 @@ build_tauri_app() {
     print_info "Tauri 应用构建完成"
 }
 
-# 构建 Flatpak 包
-build_flatpak() {
-    print_info "构建 Flatpak 包..."
+# 智能构建 Flatpak 包
+build_flatpak_smart() {
+    print_info "智能构建 Flatpak 包..."
     
     cd flatpak
     
@@ -114,13 +85,30 @@ build_flatpak() {
     if ! flatpak list | grep -q "org.gnome.Platform"; then
         print_info "安装 GNOME Platform 运行时..."
         # 尝试安装最新稳定版本
+        flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
         flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-        flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y || \
-        flatpak install flathub org.gnome.Platform//43 org.gnome.Sdk//43 -y
+        flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
     fi
     
-    # 构建 Flatpak 包
-    flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
+    # 检查 appstream-compose 是否可用
+    if command -v appstream-compose &> /dev/null; then
+        print_info "✅ appstream-compose 可用，使用标准构建流程"
+        flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
+    else
+        print_warning "❌ appstream-compose 不可用，使用备用配置"
+        
+        # 创建临时配置文件
+        cp com.influxdb.studio.yml com.influxdb.studio.backup.yml
+        
+        # 修改配置文件避免使用 appstream-compose
+        sed -i 's|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/com.influxdb.studio.appdata.xml|' com.influxdb.studio.yml
+        
+        # 构建
+        flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
+        
+        # 恢复原配置
+        mv com.influxdb.studio.backup.yml com.influxdb.studio.yml
+    fi
     
     # 创建 Flatpak 包文件
     flatpak build-bundle repo influxdb-studio.flatpak com.influxdb.studio
@@ -140,11 +128,11 @@ cleanup() {
 
 # 主函数
 main() {
-    print_info "开始构建 InfluxDB Studio Flatpak 包..."
+    print_info "开始智能构建 InfluxDB Studio Flatpak 包..."
     
     check_dependencies
     build_tauri_app
-    build_flatpak
+    build_flatpak_smart
     
     print_info "构建完成！"
     print_info "Flatpak 包位置: flatpak/influxdb-studio.flatpak"
@@ -160,7 +148,7 @@ case "${1:-}" in
         echo "用法: $0 [clean|help]"
         echo "  clean: 清理构建文件"
         echo "  help:  显示帮助信息"
-        echo "  无参数: 构建 Flatpak 包"
+        echo "  无参数: 智能构建 Flatpak 包"
         ;;
     "")
         main
