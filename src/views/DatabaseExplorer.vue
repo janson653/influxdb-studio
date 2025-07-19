@@ -11,10 +11,17 @@
             <el-tag :type="getVersionTagType(activeConnection.version)" size="small">
               {{ activeConnection.version }}
             </el-tag>
+            <el-tag :type="getConnectionStatusType()" size="small">
+              {{ getConnectionStatusText() }}
+            </el-tag>
           </div>
         </div>
         <div class="header-right">
-          <el-button @click="refreshData" :loading="isLoading">
+          <el-button @click="connectToDatabase" v-if="!isConnected" type="primary">
+            <el-icon><Connection /></el-icon>
+            连接数据库
+          </el-button>
+          <el-button @click="refreshData" :loading="isLoading" v-else>
             <el-icon><Refresh /></el-icon>
             刷新
           </el-button>
@@ -30,6 +37,34 @@
           </el-empty>
         </div>
         
+        <div v-else-if="!isConnected" class="not-connected">
+          <el-empty description="数据库未连接">
+            <el-button type="primary" @click="connectToDatabase" :loading="isConnecting">
+              连接数据库
+            </el-button>
+          </el-empty>
+        </div>
+        
+        <div v-else-if="connectionError" class="connection-error">
+          <el-alert
+            :title="`连接错误: ${connectionError}`"
+            type="error"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              <div style="margin-top: 10px;">
+                <el-button @click="connectToDatabase" :loading="isConnecting">
+                  重试连接
+                </el-button>
+                <el-button @click="disconnectFromDatabase">
+                  断开连接
+                </el-button>
+              </div>
+            </template>
+          </el-alert>
+        </div>
+        
         <div v-else class="explorer-content">
           <el-row :gutter="20">
             <el-col :span="8">
@@ -40,14 +75,24 @@
                   <el-button 
                     v-if="canCreateDatabase()"
                     style="float: right; padding: 3px 0" 
-                    type="text"
+                    link
                     @click="showCreateDatabaseDialog"
                   >
                     新建
                   </el-button>
                 </template>
                 
+                <div v-if="isLoading" class="loading-container">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  <span>正在加载...</span>
+                </div>
+                
+                <div v-else-if="databaseTreeData.length === 0" class="empty-container">
+                  <el-empty :description="`暂无${getDatabaseNameLabel()}`" />
+                </div>
+                
                 <el-tree
+                  v-else
                   ref="databaseTree"
                   :data="databaseTreeData"
                   :props="treeProps"
@@ -204,14 +249,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Refresh, 
   Folder, 
   Document, 
-  FolderOpened 
+  FolderOpened,
+  Connection,
+  Loading
 } from '@element-plus/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'
@@ -225,6 +272,7 @@ const connectionStore = useConnectionStore()
 
 // 响应式数据
 const isLoading = ref(false)
+const isConnecting = ref(false)
 const selectedItem = ref<any>(null)
 const activeTab = ref('tags')
 const showCreateDatabase = ref(false)
@@ -252,6 +300,20 @@ const treeProps = {
 // 计算属性
 const activeConnection = computed(() => connectionStore.activeConnectionConfig)
 
+const connectionStatus = computed(() => {
+  if (!activeConnection.value) return null
+  return connectionStore.connectionStatus[activeConnection.value.id]
+})
+
+const isConnected = computed(() => {
+  return connectionStatus.value?.status === 'connected' && 
+         connectionStatus.value?.backendConnectionId
+})
+
+const connectionError = computed(() => {
+  return connectionStatus.value?.error
+})
+
 // 方法
 const getVersionTagType = (version: string) => {
   switch (version) {
@@ -259,6 +321,28 @@ const getVersionTagType = (version: string) => {
     case InfluxDBVersion.V2: return 'warning'
     case InfluxDBVersion.V3: return 'success'
     default: return 'info'
+  }
+}
+
+const getConnectionStatusType = () => {
+  if (!connectionStatus.value) return 'info'
+  
+  switch (connectionStatus.value.status) {
+    case 'connected': return 'success'
+    case 'connecting': return 'warning'
+    case 'error': return 'danger'
+    default: return 'info'
+  }
+}
+
+const getConnectionStatusText = () => {
+  if (!connectionStatus.value) return '未连接'
+  
+  switch (connectionStatus.value.status) {
+    case 'connected': return '已连接'
+    case 'connecting': return '连接中'
+    case 'error': return '连接错误'
+    default: return '未连接'
   }
 }
 
@@ -348,8 +432,55 @@ const canDeleteMeasurement = () => {
   return true
 }
 
-const refreshData = async () => {
+const connectToDatabase = async () => {
+  if (!activeConnection.value) {
+    console.log('[FE] connectToDatabase: 没有活跃连接')
+    return
+  }
+  
+  console.log('[FE] connectToDatabase: 开始连接', {
+    connectionId: activeConnection.value.id,
+    connectionName: activeConnection.value.name,
+    connectionConfig: activeConnection.value
+  })
+  
+  isConnecting.value = true
+  try {
+    const success = await connectionStore.connectTo(activeConnection.value.id)
+    console.log('[FE] connectToDatabase: 连接结果', {
+      success,
+      connectionStatus: connectionStore.connectionStatus[activeConnection.value.id]
+    })
+    
+    if (success) {
+      ElMessage.success('数据库连接成功')
+      await loadDatabases()
+    } else {
+      ElMessage.error('数据库连接失败')
+    }
+  } catch (error) {
+    console.error('[FE] connectToDatabase: 连接异常', error)
+    ElMessage.error(`连接失败: ${error}`)
+  } finally {
+    isConnecting.value = false
+  }
+}
+
+const disconnectFromDatabase = async () => {
   if (!activeConnection.value) return
+  
+  try {
+    await connectionStore.disconnectFrom(activeConnection.value.id)
+    ElMessage.success('已断开连接')
+    databaseTreeData.value = []
+    selectedItem.value = null
+  } catch (error) {
+    ElMessage.error('断开连接失败')
+  }
+}
+
+const refreshData = async () => {
+  if (!activeConnection.value || !isConnected.value) return
   
   isLoading.value = true
   try {
@@ -363,22 +494,39 @@ const refreshData = async () => {
 }
 
 const loadDatabases = async () => {
-  if (!activeConnection.value) return
+  if (!activeConnection.value || !isConnected.value) {
+    console.log('[FE] loadDatabases: 连接检查失败', {
+      hasActiveConnection: !!activeConnection.value,
+      isConnected: isConnected.value,
+      connectionStatus: connectionStatus.value
+    })
+    return
+  }
   
-  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
-  const backendConnectionId = connectionStatus?.backendConnectionId
+  const backendConnectionId = connectionStatus.value?.backendConnectionId
   
   if (!backendConnectionId) {
+    console.error('[FE] loadDatabases: backendConnectionId 不存在', {
+      connectionStatus: connectionStatus.value
+    })
     ElMessage.error('连接未建立，请先连接到数据库')
     return
   }
+  
+  console.log('[FE] loadDatabases: 开始获取数据库列表', {
+    backendConnectionId,
+    activeConnection: activeConnection.value
+  })
   
   try {
     const response = await invoke('get_databases', { 
       connectionId: backendConnectionId 
     }) as any
     
+    console.log('[FE] loadDatabases: 后端响应', response)
+    
     if (response.success && response.data) {
+      console.log('[FE] loadDatabases: 成功获取数据库列表', response.data)
       // 构建树形数据
       databaseTreeData.value = response.data.map((db: string) => ({
         id: db,
@@ -386,9 +534,13 @@ const loadDatabases = async () => {
         type: 'database',
         children: []
       }))
+      console.log('[FE] loadDatabases: 构建的树形数据', databaseTreeData.value)
+    } else {
+      console.error('[FE] loadDatabases: 后端返回错误', response.error)
+      ElMessage.error(response.error || '获取数据库列表失败')
     }
   } catch (error) {
-    console.error('获取数据库列表失败:', error)
+    console.error('[FE] loadDatabases: 调用异常', error)
     ElMessage.error('获取数据库列表失败')
   }
 }
@@ -403,18 +555,20 @@ const handleDatabaseClick = async (data: any) => {
 }
 
 const loadMeasurements = async (database: string) => {
-  if (!activeConnection.value) return
+  if (!activeConnection.value || !isConnected.value) return
   
-  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
-  const backendConnectionId = connectionStatus?.backendConnectionId
+  const backendConnectionId = connectionStatus.value?.backendConnectionId
   
   if (!backendConnectionId) return
   
   try {
+    console.log(`正在获取数据库 ${database} 的测量值列表...`)
     const response = await invoke('get_measurements', { 
       connectionId: backendConnectionId,
       database 
     }) as any
+    
+    console.log('测量值列表响应:', response)
     
     if (response.success && response.data) {
       // 更新树形数据
@@ -427,10 +581,13 @@ const loadMeasurements = async (database: string) => {
           database,
           count: 0 // 简化实现
         }))
+        console.log('更新后的数据库节点:', databaseNode)
       }
+    } else {
+      console.error('获取测量值列表失败:', response.error)
     }
   } catch (error) {
-    console.error('获取测量值列表失败:', error)
+    console.error('获取测量值列表异常:', error)
   }
 }
 
@@ -440,10 +597,9 @@ const showCreateDatabaseDialog = () => {
 }
 
 const createDatabase = async () => {
-  if (!activeConnection.value || !newDatabaseForm.value.name) return
+  if (!activeConnection.value || !newDatabaseForm.value.name || !isConnected.value) return
   
-  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
-  const backendConnectionId = connectionStatus?.backendConnectionId
+  const backendConnectionId = connectionStatus.value?.backendConnectionId
   
   if (!backendConnectionId) {
     ElMessage.error('连接未建立，请先连接到数据库')
@@ -489,10 +645,9 @@ const showDeleteDatabaseDialog = async () => {
 }
 
 const deleteDatabase = async (database: string) => {
-  if (!activeConnection.value) return
+  if (!activeConnection.value || !isConnected.value) return
   
-  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
-  const backendConnectionId = connectionStatus?.backendConnectionId
+  const backendConnectionId = connectionStatus.value?.backendConnectionId
   
   if (!backendConnectionId) {
     ElMessage.error('连接未建立，请先连接到数据库')
@@ -538,10 +693,9 @@ const showDeleteMeasurementDialog = async () => {
 }
 
 const deleteMeasurement = async (database: string, measurement: string) => {
-  if (!activeConnection.value) return
+  if (!activeConnection.value || !isConnected.value) return
   
-  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
-  const backendConnectionId = connectionStatus?.backendConnectionId
+  const backendConnectionId = connectionStatus.value?.backendConnectionId
   
   if (!backendConnectionId) {
     ElMessage.error('连接未建立，请先连接到数据库')
@@ -553,6 +707,7 @@ const deleteMeasurement = async (database: string, measurement: string) => {
     const query = `DROP MEASUREMENT "${measurement}"`
     const response = await invoke('execute_query', { 
       connectionId: backendConnectionId,
+      database,
       query
     }) as any
     
@@ -587,9 +742,29 @@ const openQueryEditor = () => {
   })
 }
 
+// 监听连接状态变化
+watch(() => isConnected.value, (connected) => {
+  console.log('[FE] 连接状态变化监听器', {
+    connected,
+    connectionStatus: connectionStatus.value,
+    activeConnection: activeConnection.value
+  })
+  
+  if (connected) {
+    console.log('[FE] 连接成功，开始加载数据库列表')
+    // 连接成功后自动加载数据
+    loadDatabases()
+  } else {
+    console.log('[FE] 连接断开，清空数据')
+    // 连接断开时清空数据
+    databaseTreeData.value = []
+    selectedItem.value = null
+  }
+})
+
 // 生命周期
 onMounted(() => {
-  if (activeConnection.value) {
+  if (activeConnection.value && isConnected.value) {
     loadDatabases()
   }
 })
@@ -632,32 +807,45 @@ onMounted(() => {
   align-items: center;
 }
 
-.no-connection {
+.no-connection,
+.not-connected {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 400px;
 }
 
+.connection-error {
+  padding: 20px;
+}
+
 .explorer-content {
   padding: 20px;
+}
+
+.loading-container,
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #909399;
+}
+
+.loading-container .el-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
 }
 
 .custom-tree-node {
   display: flex;
   align-items: center;
   gap: 5px;
-  width: 100%;
 }
 
 .measurement-count {
   color: #909399;
   font-size: 12px;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }
 </style> 

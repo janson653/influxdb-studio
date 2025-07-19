@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Settings',
         component: () => import('../views/Settings.vue'),
         meta: { title: '设置' }
+      },
+      {
+        path: 'monaco-test',
+        name: 'MonacoTest',
+        component: () => import('../views/MonacoTest.vue'),
+        meta: { title: 'Monaco Editor 测试' }
       }
     ]
   }

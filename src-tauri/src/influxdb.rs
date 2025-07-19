@@ -58,6 +58,11 @@ pub struct InfluxDBV1Service {
 
 impl InfluxDBV1Service {
     pub async fn new(config: InfluxDBV1Config) -> Result<Self, AppError> {
+        tracing::info!(
+            "Creating InfluxDB v1 service for host: {}:{}",
+            config.host,
+            config.port
+        );
         let protocol = if config.use_ssl { "https" } else { "http" };
         let base_url = format!("{}://{}:{}", protocol, config.host, config.port);
         
@@ -74,68 +79,113 @@ impl InfluxDBV1Service {
     }
 
     async fn ping(&self) -> Result<bool, AppError> {
+        tracing::info!("Pinging v1 service at {}", self.base_url);
         let url = format!("{}/ping", self.base_url);
         let response = self.client.get(&url).send().await
             .map_err(|e| AppError::Network(e.to_string()))?;
-        Ok(response.status().is_success())
+        
+        if response.status().is_success() {
+            Ok(true)
+        } else {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_else(|_| "N/A".to_string());
+            let error_message = format!(
+                "Connection failed with status: {}. Response: {}",
+                status, text
+            );
+            tracing::warn!("{}", error_message);
+            Err(AppError::Network(error_message))
+        }
     }
 
     async fn query(&self, query: &str) -> Result<QueryResult, AppError> {
+        tracing::info!("[BE] InfluxDBV1Service::query called with query: '{}'", query);
         let start = std::time::Instant::now();
+        
         let url = format!("{}/query", self.base_url);
-        let query_string = query.to_string();
-        let mut params = vec![
-            ("db", &self.config.database),
-            ("q", &query_string),
-        ];
+        tracing::info!("[BE] Making HTTP request to: {}", url);
         
-        if let Some(username) = &self.config.username {
-            params.push(("u", username));
-        }
-        if let Some(password) = &self.config.password {
-            params.push(("p", password));
+        let mut request_builder = self.client
+            .get(&url)
+            .query(&[("q", query)]);
+        
+        // 添加数据库参数
+        request_builder = request_builder.query(&[("db", &self.config.database)]);
+        tracing::info!("[BE] Added database parameter: {}", self.config.database);
+        
+        // 添加认证信息
+        if let (Some(username), Some(password)) = (&self.config.username, &self.config.password) {
+            request_builder = request_builder.basic_auth(username, Some(password));
+            tracing::info!("[BE] Added basic auth for user: {}", username);
         }
         
-        let response = self.client
-            .post(&url)
-            .query(&params)
+        let response = request_builder
             .send()
             .await
-            .map_err(|e| AppError::Network(e.to_string()))?;
-        
+            .map_err(|e| {
+                tracing::error!("[BE] HTTP request failed: {}", e);
+                AppError::Network(e.to_string())
+            })?;
+
         let status = response.status();
+        tracing::info!("[BE] HTTP response status: {}", status);
+        
+        let response_text = response.text().await.map_err(|e| {
+            tracing::error!("[BE] Failed to read response text: {}", e);
+            AppError::Network(e.to_string())
+        })?;
+        
+        tracing::info!("[BE] Response text: {}", response_text);
         
         if status.is_success() {
-            let response_text = response.text().await
-                .map_err(|e| AppError::Network(e.to_string()))?;
             let series = self.parse_query_response(&response_text)?;
             let execution_time = start.elapsed().as_millis() as u64;
+            
+            tracing::info!("[BE] Query succeeded, parsed {} series, took {}ms", 
+                          series.len(), execution_time);
             
             Ok(QueryResult {
                 series,
                 execution_time,
             })
         } else {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            Err(AppError::Query(format!("HTTP {status}: {error_text}")))
+            let error_message = format!("HTTP {status}: {response_text}");
+            tracing::error!("[BE] Query failed: {}", error_message);
+            Err(AppError::Query(error_message))
         }
     }
 
     async fn get_databases(&self) -> Result<Vec<String>, AppError> {
+        tracing::info!("[BE] InfluxDBV1Service::get_databases called");
         let query = "SHOW DATABASES";
+        tracing::info!("[BE] Executing query: '{}'", query);
+        
         let result = self.query(query).await?;
+        tracing::info!("[BE] Query result: {:?} series", result.series.len());
         
         let mut databases = Vec::new();
-        for series in result.series {
-            for row in series.values {
-                if let Some(db_name) = row.get(1) {
+        for (series_index, series) in result.series.iter().enumerate() {
+            tracing::info!("[BE] Processing series {}: name='{}', columns={:?}", 
+                          series_index, series.name, series.columns);
+            
+            for (row_index, row) in series.values.iter().enumerate() {
+                tracing::info!("[BE] Processing row {}: {:?}", row_index, row);
+                
+                // 修复：数据库名称在索引 0，不是索引 1
+                if let Some(db_name) = row.get(0) {
                     if let Some(name) = db_name.as_str() {
+                        tracing::info!("[BE] Found database: {}", name);
                         databases.push(name.to_string());
+                    } else {
+                        tracing::warn!("[BE] Database name is not a string: {:?}", db_name);
                     }
+                } else {
+                    tracing::warn!("[BE] No database name found at index 0 in row: {:?}", row);
                 }
             }
         }
         
+        tracing::info!("[BE] get_databases completed, found {} databases: {:?}", databases.len(), databases);
         Ok(databases)
     }
 
@@ -262,6 +312,11 @@ pub struct InfluxDBV2Service {
 
 impl InfluxDBV2Service {
     pub async fn new(config: InfluxDBV2Config) -> Result<Self, AppError> {
+        tracing::info!(
+            "Creating InfluxDB v2 service for host: {}:{}",
+            config.host,
+            config.port
+        );
         let protocol = if config.use_ssl { "https" } else { "http" };
         let base_url = format!("{}://{}:{}", protocol, config.host, config.port);
         
@@ -278,13 +333,33 @@ impl InfluxDBV2Service {
     }
 
     async fn ping(&self) -> Result<bool, AppError> {
+        tracing::info!("Pinging v2 service at {}", self.base_url);
         let url = format!("{}/ping", self.base_url);
-        let response = self.client.get(&url).send().await
+        let token = &self.config.token;
+        
+        let response = self.client
+            .get(&url)
+            .header("Authorization", format!("Token {token}"))
+            .send()
+            .await
             .map_err(|e| AppError::Network(e.to_string()))?;
-        Ok(response.status().is_success())
+
+        if response.status().is_success() {
+            Ok(true)
+        } else {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_else(|_| "N/A".to_string());
+            let error_message = format!(
+                "Connection failed with status: {}. Response: {}",
+                status, text
+            );
+            tracing::warn!("{}", error_message);
+            Err(AppError::Network(error_message))
+        }
     }
 
     async fn query(&self, query: &str) -> Result<QueryResult, AppError> {
+        tracing::info!("Executing v2 query (raw): '{}'", query);
         let start = std::time::Instant::now();
         let org = &self.config.org;
         let token = &self.config.token;
@@ -294,6 +369,7 @@ impl InfluxDBV2Service {
         
         // InfluxDB 2.x 使用 Flux 查询语言
         let flux_query = self.convert_to_flux(query)?;
+        tracing::info!("Executing v2 query (flux): '{}'", flux_query);
         
         let response = self.client
             .post(&url)
@@ -312,13 +388,16 @@ impl InfluxDBV2Service {
             let series = self.parse_flux_response(&response_text)?;
             let execution_time = start.elapsed().as_millis() as u64;
             
+            tracing::info!("Query executed successfully in {}ms", execution_time);
             Ok(QueryResult {
                 series,
                 execution_time,
             })
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            Err(AppError::Query(format!("HTTP {status}: {error_text}")))
+            let error_message = format!("HTTP {status}: {error_text}");
+            tracing::error!("Query failed: {}", error_message);
+            Err(AppError::Query(error_message))
         }
     }
 

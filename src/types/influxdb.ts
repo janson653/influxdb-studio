@@ -33,8 +33,8 @@ export interface ConnectionProfile {
   name: string
   version: InfluxDBVersion
   config: InfluxDBV1Config | InfluxDBV2Config
-  createdAt: number
-  updatedAt: number
+  created_at: number
+  updated_at: number
 }
 
 // 连接状态接口

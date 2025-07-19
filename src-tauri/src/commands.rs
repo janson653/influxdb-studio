@@ -61,11 +61,16 @@ pub async fn connect_to_database(
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<String>, String> {
     let connection_id = profile.id.clone();
+    tracing::info!("[BE] connect_to_database called for profile: {} (id: {})", profile.name, connection_id);
     
     // 创建服务
     let service = match create_influxdb_service(&profile).await {
-        Ok(service) => service,
+        Ok(service) => {
+            tracing::info!("[BE] Successfully created service for profile: {}", profile.name);
+            service
+        },
         Err(e) => {
+            tracing::error!("[BE] Failed to create service for profile {}: {}", profile.name, e);
             return Ok(ApiResponse {
                 success: false,
                 data: None,
@@ -77,9 +82,12 @@ pub async fn connect_to_database(
     // 存储连接
     {
         let mut conn_map = connections.lock().unwrap();
+        tracing::info!("[BE] Storing connection in map with id: {}", connection_id);
         conn_map.insert(connection_id.clone(), Arc::new(service));
+        tracing::info!("[BE] Current connections after insert: {:?}", conn_map.keys().collect::<Vec<_>>());
     }
     
+    tracing::info!("[BE] connect_to_database succeeded, returning connection_id: {}", connection_id);
     Ok(ApiResponse {
         success: true,
         data: Some(connection_id),
@@ -115,12 +123,20 @@ pub async fn get_databases(
     connection_id: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<Vec<String>>, String> {
+    tracing::info!("[BE] get_databases called with connection_id: {}", connection_id);
+    
     // 获取服务引用
     let service = {
         let conn_map = connections.lock().unwrap();
+        tracing::info!("[BE] Current connections in map: {:?}", conn_map.keys().collect::<Vec<_>>());
+        
         match conn_map.get(&connection_id) {
-            Some(service) => service.clone(),
+            Some(service) => {
+                tracing::info!("[BE] Found service for connection_id: {}", connection_id);
+                service.clone()
+            },
             None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
                 return Ok(ApiResponse {
                     success: false,
                     data: None,
@@ -130,18 +146,26 @@ pub async fn get_databases(
         }
     };
     
+    tracing::info!("[BE] Calling service.get_databases()");
+    
     // 执行查询
     match service.get_databases().await {
-        Ok(databases) => Ok(ApiResponse {
-            success: true,
-            data: Some(databases),
-            error: None,
-        }),
-        Err(e) => Ok(ApiResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        }),
+        Ok(databases) => {
+            tracing::info!("[BE] get_databases succeeded, found {} databases: {:?}", databases.len(), databases);
+            Ok(ApiResponse {
+                success: true,
+                data: Some(databases),
+                error: None,
+            })
+        },
+        Err(e) => {
+            tracing::error!("[BE] get_databases failed with error: {}", e);
+            Ok(ApiResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            })
+        }
     }
 }
 

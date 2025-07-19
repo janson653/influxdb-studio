@@ -7,6 +7,34 @@ import type {
 } from '../types/influxdb'
 import { InfluxDBVersion } from '../types/influxdb'
 
+/**
+ * A logging wrapper around the Tauri invoke function.
+ * @param command The name of the Rust command to invoke.
+ * @param args The arguments to pass to the command.
+ * @returns The result of the API call.
+ */
+async function loggedInvoke(command: string, args?: any): Promise<any> {
+  console.log(`[FE] Invoking command '${command}' with args:`, args)
+  try {
+    const response = await invoke(command, args)
+    console.log(`[FE] Command '${command}' succeeded with response:`, response)
+    
+    const apiResponse = response as any
+    if (apiResponse && apiResponse.success === false) {
+      console.error(`[FE] Command '${command}' returned a business error:`, apiResponse.error)
+      // Still resolve with the business error response to be handled by the caller
+      return apiResponse
+    }
+    
+    return response
+  } catch (error) {
+    console.error(`[FE] Command '${command}' failed with error:`, error)
+    // Rethrow the error to be caught by the caller's catch block
+    throw error
+  }
+}
+
+
 // 连接状态管理存储
 export const useConnectionStore = defineStore('connection', () => {
   // 状态
@@ -28,18 +56,19 @@ export const useConnectionStore = defineStore('connection', () => {
 
   // 动作
   const addConnection = (profile: ConnectionProfile) => {
+    console.log(`[Store] Adding or updating connection: ${profile.name} (${profile.id})`)
     // 检查是否已存在相同 ID 的连接
     const existingIndex = connections.value.findIndex(c => c.id === profile.id)
     if (existingIndex >= 0) {
       connections.value[existingIndex] = {
         ...profile,
-        updatedAt: Date.now()
+        updated_at: Date.now()
       }
     } else {
       connections.value.push({
         ...profile,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        created_at: Date.now(),
+        updated_at: Date.now()
       })
     }
     
@@ -54,6 +83,7 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   const removeConnection = (id: string) => {
+    console.log(`[Store] Removing connection: ${id}`)
     connections.value = connections.value.filter(c => c.id !== id)
     delete connectionStatus.value[id]
     
@@ -72,13 +102,14 @@ export const useConnectionStore = defineStore('connection', () => {
       connections.value[index] = { 
         ...connections.value[index], 
         ...updates,
-        updatedAt: Date.now()
+        updated_at: Date.now()
       }
       saveConnections()
     }
   }
 
   const setActiveConnection = (id: string | null) => {
+    console.log(`[Store] Setting active connection to: ${id}`)
     activeConnection.value = id
   }
 
@@ -94,11 +125,18 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       // 调用 Tauri 命令测试连接
-      const apiResponse = await invoke('test_connection', { profile: connection }) as any
+      const apiResponse = await loggedInvoke('test_connection', { profile: connection })
       
       // 检查 API 响应
       if (!apiResponse.success) {
-        throw new Error(apiResponse.error || '连接测试失败')
+        // 后端返回了业务错误
+        const errorMessage = apiResponse.error || '连接测试失败，未提供额外信息。'
+        connectionStatus.value[id] = {
+          id,
+          status: 'error',
+          error: errorMessage
+        }
+        return false
       }
       
       const result = apiResponse.data as boolean
@@ -113,11 +151,11 @@ export const useConnectionStore = defineStore('connection', () => {
       
       return result
     } catch (error) {
-      // 更新连接状态为错误
+      // 调用本身失败 (e.g., network error, Rust panic)
       connectionStatus.value[id] = {
         id,
         status: 'error',
-        error: error instanceof Error ? error.message : '连接失败'
+        error: error instanceof Error ? error.message : String(error)
       }
       return false
     }
@@ -135,7 +173,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       // 调用 Tauri 命令建立连接
-      const apiResponse = await invoke('connect_to_database', { profile: connection }) as any
+      const apiResponse = await loggedInvoke('connect_to_database', { profile: connection })
       
       // 检查 API 响应
       if (!apiResponse.success) {
@@ -166,6 +204,7 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   const disconnectFrom = (id: string) => {
+    console.log(`[Store] Disconnecting from: ${id}`)
     connectionStatus.value[id] = {
       id,
       status: 'disconnected'
@@ -189,58 +228,68 @@ export const useConnectionStore = defineStore('connection', () => {
     try {
       const saved = localStorage.getItem('influxdb-connections')
       if (saved) {
-        const parsed = JSON.parse(saved)
-        // 兼容旧版本数据格式
+        const parsed = JSON.parse(saved) as any[]
+        
         if (Array.isArray(parsed)) {
           connections.value = parsed.map(conn => {
-            // 如果是旧格式，转换为新格式
-            if (!conn.version) {
+            const now = Date.now()
+            // 创建一个保证结构完整的新对象，而不是修补旧对象
+            const newConn = {
+              ...conn,
+              created_at: conn.created_at || conn.createdAt || now,
+              updated_at: conn.updated_at || conn.updatedAt || now,
+            }
+
+            // 兼容旧版本数据格式
+            if (!newConn.version) {
               // 判断版本并转换
-              if (conn.token && conn.org) {
+              if (newConn.token && newConn.org) {
                 return {
-                  id: conn.id,
-                  name: conn.name,
+                  id: newConn.id,
+                  name: newConn.name,
                   version: InfluxDBVersion.V2,
                   config: {
-                    host: conn.host,
-                    port: conn.port,
-                    token: conn.token,
-                    org: conn.org,
-                    bucket: conn.bucket,
-                    useSsl: conn.useSsl || false,
-                    timeout: conn.timeout || 5000
+                    host: newConn.host,
+                    port: newConn.port,
+                    token: newConn.token,
+                    org: newConn.org,
+                    bucket: newConn.bucket,
+                    useSsl: newConn.useSsl || false,
+                    timeout: newConn.timeout || 5000
                   },
-                  createdAt: conn.createdAt || Date.now(),
-                  updatedAt: conn.updatedAt || Date.now()
+                  createdAt: newConn.createdAt,
+                  updatedAt: newConn.updatedAt
                 }
-              } else if (conn.database && (conn.username || conn.password)) {
+              } else if (newConn.database) { // 稍微放宽 v1 的判断条件
                 return {
-                  id: conn.id,
-                  name: conn.name,
+                  id: newConn.id,
+                  name: newConn.name,
                   version: InfluxDBVersion.V1,
                   config: {
-                    host: conn.host,
-                    port: conn.port,
-                    database: conn.database,
-                    username: conn.username,
-                    password: conn.password,
-                    useSsl: conn.useSsl || false,
-                    timeout: conn.timeout || 5000
+                    host: newConn.host,
+                    port: newConn.port,
+                    database: newConn.database,
+                    username: newConn.username,
+                    password: newConn.password,
+                    useSsl: newConn.useSsl || false,
+                    timeout: newConn.timeout || 5000
                   },
-                  createdAt: conn.createdAt || Date.now(),
-                  updatedAt: conn.updatedAt || Date.now()
+                  createdAt: newConn.createdAt,
+                  updatedAt: newConn.updatedAt
                 }
               }
             }
-            return conn
+            return newConn
           })
         }
         
         // 初始化所有连接的状态
         connections.value.forEach(conn => {
-          connectionStatus.value[conn.id] = {
-            id: conn.id,
-            status: 'disconnected'
+          if (conn) { // 确保 conn 不为 null 或 undefined
+            connectionStatus.value[conn.id] = {
+              id: conn.id,
+              status: 'disconnected'
+            }
           }
         })
       }
@@ -250,6 +299,7 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   // 初始化时加载连接配置
+  console.log('[Store] Initializing connection store and loading connections.')
   loadConnections()
 
   return {

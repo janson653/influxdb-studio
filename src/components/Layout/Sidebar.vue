@@ -31,6 +31,10 @@
         <el-icon><Setting /></el-icon>
         <span>设置</span>
       </el-menu-item>
+      <el-menu-item index="monaco-test">
+        <el-icon><Edit /></el-icon>
+        <span>Monaco 测试</span>
+      </el-menu-item>
     </el-menu>
   </el-aside>
 </template>
@@ -38,7 +42,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Connection, Search, House, DataAnalysis, Setting } from '@element-plus/icons-vue'
+import { Connection, Search, House, DataAnalysis, Setting, Edit } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -63,6 +67,9 @@ watch(() => route.path, (newPath) => {
     case '/settings':
       activeMenu.value = 'settings'
       break
+    case '/monaco-test':
+      activeMenu.value = 'monaco-test'
+      break
   }
 }, { immediate: true })
 
@@ -76,7 +83,8 @@ const handleMenuSelect = (key: string) => {
     'connections': '/connection',
     'database': '/database',
     'query': '/query',
-    'settings': '/settings'
+    'settings': '/settings',
+    'monaco-test': '/monaco-test'
   }
   
   const targetRoute = routeMap[key]

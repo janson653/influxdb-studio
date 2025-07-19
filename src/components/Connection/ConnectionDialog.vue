@@ -413,8 +413,8 @@ const handleSubmit = async () => {
       name: form.name,
       version: form.version,
       config,
-      createdAt: props.connection?.createdAt || Date.now(),
-      updatedAt: Date.now()
+      created_at: props.connection?.created_at || Date.now(),
+      updated_at: Date.now()
     }
     
     // 触发保存事件

@@ -19,7 +19,7 @@
                 <el-button 
                   v-if="connections.length > 0"
                   style="float: right; padding: 3px 0" 
-                  type="text"
+                  link
                   @click="testAllConnections"
                 >
                   测试所有连接
@@ -162,10 +162,10 @@
                   {{ selectedConnection.config.timeout }}ms
                 </el-descriptions-item>
                 <el-descriptions-item label="创建时间">
-                  {{ formatDate(selectedConnection.createdAt) }}
+                  {{ formatDate(selectedConnection.created_at) }}
                 </el-descriptions-item>
                 <el-descriptions-item label="更新时间">
-                  {{ formatDate(selectedConnection.updatedAt) }}
+                  {{ formatDate(selectedConnection.updated_at) }}
                 </el-descriptions-item>
               </el-descriptions>
               

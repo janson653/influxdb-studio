@@ -5,7 +5,7 @@
       <!-- 添加顶部导航栏 -->
       <el-header style="height: 50px; background-color: #fff; border-bottom: 1px solid #e4e7ed; padding: 0 20px; display: flex; align-items: center; justify-content: space-between;">
         <div class="nav-left">
-          <el-button @click="goHome" type="text" size="small">
+          <el-button @click="goHome" link size="small">
             <el-icon><House /></el-icon>
             首页
           </el-button>
@@ -13,7 +13,7 @@
           <span class="current-page">{{ currentPageTitle }}</span>
         </div>
         <div class="nav-right">
-          <el-button @click="goBack" type="text" size="small">
+          <el-button @click="goBack" link size="small">
             <el-icon><ArrowLeft /></el-icon>
             返回
           </el-button>

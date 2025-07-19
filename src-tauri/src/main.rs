@@ -15,6 +15,8 @@ fn greet(name: &str) -> String {
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     tauri::Builder::default()
         .manage(commands::ConnectionMap::default())
         .invoke_handler(tauri::generate_handler![
