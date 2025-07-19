@@ -1,49 +1,26 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import MainLayout from '../components/Layout/MainLayout.vue'
 
 // 路由配置
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Layout',
-    component: () => import('../components/Layout/MainLayout.vue'),
-    redirect: '/home',
+    component: MainLayout,
+    // 子路由现在用于在 MainLayout 的 <router-view> 中显示非核心页面
     children: [
-      {
-        path: 'home',
-        name: 'Home',
-        component: () => import('../views/Home.vue'),
-        meta: { title: '首页' }
-      },
-      {
-        path: 'connection',
-        name: 'ConnectionManager',
-        component: () => import('../views/ConnectionManager.vue'),
-        meta: { title: '连接管理' }
-      },
-      {
-        path: 'database',
-        name: 'DatabaseExplorer',
-        component: () => import('../views/DatabaseExplorer.vue'),
-        meta: { title: '数据库浏览器' }
-      },
-      {
-        path: 'query',
-        name: 'QueryEditor',
-        component: () => import('../views/QueryEditor.vue'),
-        meta: { title: '查询编辑器' }
-      },
       {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/Settings.vue'),
         meta: { title: '设置' }
       },
+      // 主页，由 MainLayout 内部管理
       {
-        path: 'monaco-test',
-        name: 'MonacoTest',
-        component: () => import('../views/MonacoTest.vue'),
-        meta: { title: 'Monaco Editor 测试' }
+        path: '',
+        name: 'Home',
+        component: { template: '<div></div>' } 
       }
     ]
   }
@@ -60,6 +37,8 @@ router.beforeEach((to, _from, next) => {
   // 设置页面标题
   if (to.meta.title) {
     document.title = `${to.meta.title} - InfluxDB Studio`
+  } else {
+    document.title = 'InfluxDB Studio'
   }
   next()
 })
@@ -67,13 +46,6 @@ router.beforeEach((to, _from, next) => {
 // 路由错误处理
 router.onError((error) => {
   console.error('路由错误:', error)
-})
-
-// 处理路由导航失败
-router.afterEach((_to, _from, failure) => {
-  if (failure) {
-    console.error('路由导航失败:', failure)
-  }
 })
 
 export default router 
