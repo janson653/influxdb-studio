@@ -86,4 +86,27 @@ jobs:
           releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease: false
           args: ${{ matrix.args }}
-          includeUpdaterJson: false 
+          includeUpdaterJson: false
+
+      # 构建 Flatpak 包 (仅 Linux)
+      - name: Build Flatpak package
+        if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          # 安装 Flatpak 构建工具
+          sudo apt-get update
+          sudo apt-get install -y flatpak-builder
+          
+          # 安装 GNOME Platform 运行时
+          flatpak install org.gnome.Platform//45 org.gnome.Sdk//45 -y
+          
+          # 复制构建产物到 flatpak 目录
+          cp src-tauri/target/x86_64-unknown-linux-gnu/release/influxdb-studio flatpak/
+          
+          # 构建 Flatpak 包
+          cd flatpak
+          flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
+          flatpak build-bundle repo influxdb-studio.flatpak com.influxdb.studio
+          cd ..
+          
+          # 上传 Flatpak 包到 Release
+          gh release upload ${{ github.ref_name }} flatpak/influxdb-studio.flatpak --repo ${{ github.repository }} 

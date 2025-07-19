@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=InfluxDB Studio
+Name[zh_CN]=InfluxDB 工作室
+Comment=InfluxDB database management and visualization tool
+Comment[zh_CN]=InfluxDB 数据库管理和可视化工具
+Icon=com.influxdb.studio
+Exec=influxdb-studio
+Terminal=false
+Categories=Development;Database;GTK;
+Keywords=influxdb;database;monitoring;time-series;
+StartupWMClass=influxdb-studio 
