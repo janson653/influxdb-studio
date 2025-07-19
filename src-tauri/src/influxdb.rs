@@ -27,6 +27,13 @@ impl InfluxDBService {
         }
     }
 
+    pub async fn query_with_database(&self, query: &str, database: &str) -> Result<QueryResult, AppError> {
+        match self {
+            InfluxDBService::V1(service) => service.query_with_database(query, database).await,
+            InfluxDBService::V2(service) => service.query_with_database(query, database).await,
+        }
+    }
+
     pub async fn get_databases(&self) -> Result<Vec<String>, AppError> {
         match self {
             InfluxDBService::V1(service) => service.get_databases().await,
@@ -99,12 +106,17 @@ impl InfluxDBV1Service {
     }
 
     async fn query(&self, query: &str) -> Result<QueryResult, AppError> {
-        tracing::info!("[BE] InfluxDBV1Service::query called with query: '{}'", query);
+        // 使用配置中的默认数据库
+        self.query_with_database(query, &self.config.database).await
+    }
+
+    async fn query_with_database(&self, query: &str, database: &str) -> Result<QueryResult, AppError> {
+        tracing::info!("[BE] InfluxDBV1Service::query_with_database called with query: '{}', database: '{}'", query, database);
         
         // 检查是否是 INSERT 语句
         let upper_query = query.to_uppercase();
         if upper_query.starts_with("INSERT") {
-            return self.write(query).await;
+            return self.write_with_database(query, database).await;
         }
         
         let start = std::time::Instant::now();
@@ -117,8 +129,8 @@ impl InfluxDBV1Service {
             .query(&[("q", query)]);
         
         // 添加数据库参数
-        request_builder = request_builder.query(&[("db", &self.config.database)]);
-        tracing::info!("[BE] Added database parameter: {}", self.config.database);
+        request_builder = request_builder.query(&[("db", database)]);
+        tracing::info!("[BE] Added database parameter: {}", database);
         
         // 添加认证信息
         if let (Some(username), Some(password)) = (&self.config.username, &self.config.password) {
@@ -164,7 +176,13 @@ impl InfluxDBV1Service {
 
     /// 处理 INSERT 语句，使用 /write 端点
     async fn write(&self, insert_query: &str) -> Result<QueryResult, AppError> {
-        tracing::info!("[BE] InfluxDBV1Service::write called with query: '{}'", insert_query);
+        // 使用配置中的默认数据库
+        self.write_with_database(insert_query, &self.config.database).await
+    }
+
+    /// 处理 INSERT 语句，使用指定的数据库
+    async fn write_with_database(&self, insert_query: &str, database: &str) -> Result<QueryResult, AppError> {
+        tracing::info!("[BE] InfluxDBV1Service::write_with_database called with query: '{}', database: '{}'", insert_query, database);
         let start = std::time::Instant::now();
         
         // 解析 INSERT 语句，提取数据部分
@@ -175,7 +193,7 @@ impl InfluxDBV1Service {
         
         let mut request_builder = self.client
             .post(&url)
-            .query(&[("db", &self.config.database)])
+            .query(&[("db", database)])
             .body(data_line);
         
         // 添加认证信息
@@ -221,55 +239,109 @@ impl InfluxDBV1Service {
 
     /// 解析 INSERT 语句，提取数据行
     fn parse_insert_query(&self, insert_query: &str) -> Result<String, AppError> {
-        // 移除 INSERT INTO "database" 部分，只保留数据行
+        // 支持多种 INSERT 语法：INSERT INTO "db" data 或 INSERT "db" data 或 INSERT data
         let upper_query = insert_query.to_uppercase();
         
-        if !upper_query.starts_with("INSERT INTO") {
-            return Err(AppError::Validation("INSERT 语句必须以 'INSERT INTO' 开头".to_string()));
+        if !upper_query.starts_with("INSERT") {
+            return Err(AppError::Validation("INSERT 语句必须以 'INSERT' 开头".to_string()));
         }
         
-        // 查找数据行的开始位置
-        // INSERT INTO "database" measurement,tag_key=tag_value field_key="field_value"
-        // 需要提取: measurement,tag_key=tag_value field_key="field_value"
-        
-        let parts = insert_query.splitn(3, ' ').collect::<Vec<&str>>();
-        if parts.len() < 3 {
-            return Err(AppError::Validation("INSERT 语句格式错误".to_string()));
-        }
-        
-        // 处理数据库名部分
-        let db_part = parts[2];
-        let data_part = if db_part.starts_with('"') {
-            // 数据库名被引号包围
-            if let Some(end_quote) = db_part[1..].find('"') {
-                let remaining = &db_part[end_quote + 1..].trim();
-                if remaining.is_empty() {
-                    // 数据库名后面还有更多内容
-                    if parts.len() > 3 {
-                        parts[3..].join(" ")
-                    } else {
+        // 使用更简单的方法：直接查找数据行的开始位置
+        if upper_query.starts_with("INSERT INTO") {
+            // INSERT INTO "database" measurement,tag_key=tag_value field_key="field_value"
+            // 或 INSERT INTO database measurement,tag_key=tag_value field_key="field_value"
+            
+            // 跳过 "INSERT INTO "
+            let after_insert_into = &insert_query[12..].trim();
+            
+            // 查找数据库名和数据行的分界点
+            let data_start = if after_insert_into.starts_with('"') {
+                // 数据库名被引号包围，查找第二个引号后的内容
+                let mut quote_count = 0;
+                let mut data_start_pos = 0;
+                
+                for (i, ch) in after_insert_into.chars().enumerate() {
+                    if ch == '"' {
+                        quote_count += 1;
+                        if quote_count == 2 {
+                            data_start_pos = i + 1;
+                            break;
+                        }
+                    }
+                }
+                
+                if quote_count < 2 {
+                    return Err(AppError::Validation("数据库名引号不匹配".to_string()));
+                }
+                
+                let data_part = &after_insert_into[data_start_pos..].trim();
+                if data_part.is_empty() {
+                    return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
+                }
+                data_part.to_string()
+            } else {
+                // 数据库名没有引号，查找第一个空格后的内容
+                if let Some(first_space) = after_insert_into.find(' ') {
+                    let data_part = &after_insert_into[first_space..].trim();
+                    if data_part.is_empty() {
                         return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
                     }
+                    data_part.to_string()
                 } else {
-                    remaining.to_string()
+                    return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
                 }
-            } else {
-                return Err(AppError::Validation("数据库名引号不匹配".to_string()));
-            }
+            };
+            
+            Ok(data_start)
         } else {
-            // 数据库名没有引号，取剩余部分
-            if parts.len() > 3 {
-                parts[3..].join(" ")
-            } else {
+            // INSERT "database" measurement,tag_key=tag_value field_key="field_value"
+            // 或 INSERT database measurement,tag_key=tag_value field_key="field_value"
+            // 或 INSERT measurement,tag_key=tag_value field_key="field_value"
+            
+            // 跳过 "INSERT "
+            let after_insert = &insert_query[7..].trim();
+            
+            if after_insert.is_empty() {
                 return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
             }
-        };
-        
-        if data_part.is_empty() {
-            return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
+            
+            // 检查是否包含数据库名
+            if after_insert.starts_with('"') {
+                // 数据库名被引号包围，查找第二个引号后的内容
+                let mut quote_count = 0;
+                let mut data_start_pos = 0;
+                
+                for (i, ch) in after_insert.chars().enumerate() {
+                    if ch == '"' {
+                        quote_count += 1;
+                        if quote_count == 2 {
+                            data_start_pos = i + 1;
+                            break;
+                        }
+                    }
+                }
+                
+                if quote_count < 2 {
+                    return Err(AppError::Validation("数据库名引号不匹配".to_string()));
+                }
+                
+                let data_part = &after_insert[data_start_pos..].trim();
+                if data_part.is_empty() {
+                    return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
+                }
+                Ok(data_part.to_string())
+            } else {
+                // 检查是否包含数据库名（没有引号）
+                let parts: Vec<&str> = after_insert.split_whitespace().collect();
+                if parts.len() >= 2 && !parts[0].contains('=') {
+                    // 第一个部分可能是数据库名
+                    Ok(parts[1..].join(" "))
+                } else {
+                    // 直接是数据行
+                    Ok(after_insert.to_string())
+                }
+            }
         }
-        
-        Ok(data_part)
     }
 
     async fn get_databases(&self) -> Result<Vec<String>, AppError> {
@@ -476,7 +548,14 @@ impl InfluxDBV2Service {
     }
 
     async fn query(&self, query: &str) -> Result<QueryResult, AppError> {
-        tracing::info!("Executing v2 query (raw): '{}'", query);
+        // 使用配置中的默认bucket
+        let default_bucket = "mybucket".to_string();
+        let bucket = self.config.bucket.as_ref().unwrap_or(&default_bucket);
+        self.query_with_database(query, bucket).await
+    }
+
+    async fn query_with_database(&self, query: &str, bucket: &str) -> Result<QueryResult, AppError> {
+        tracing::info!("Executing v2 query (raw): '{}' with bucket: '{}'", query, bucket);
         let start = std::time::Instant::now();
         let org = &self.config.org;
         let token = &self.config.token;
@@ -485,7 +564,7 @@ impl InfluxDBV2Service {
         let url = format!("{}/api/v2/query?org={org}", self.base_url);
         
         // InfluxDB 2.x 使用 Flux 查询语言
-        let flux_query = self.convert_to_flux(query)?;
+        let flux_query = self.convert_to_flux_with_bucket(query, bucket)?;
         tracing::info!("Executing v2 query (flux): '{}'", flux_query);
         
         let response = self.client
@@ -576,14 +655,19 @@ impl InfluxDBV2Service {
     }
 
     fn convert_to_flux(&self, query: &str) -> Result<String, AppError> {
+        // 使用配置中的默认bucket
+        let default_bucket = "mybucket".to_string();
+        let bucket = self.config.bucket.as_ref().unwrap_or(&default_bucket);
+        self.convert_to_flux_with_bucket(query, bucket)
+    }
+
+    fn convert_to_flux_with_bucket(&self, query: &str, bucket: &str) -> Result<String, AppError> {
         let query_upper = query.to_uppercase();
         
         if query_upper.starts_with("SHOW DATABASES") {
             Ok("buckets() |> rename(columns: {name: \"name\"}) |> keep(columns: [\"name\"])".to_string())
-            } else if query_upper.starts_with("SHOW MEASUREMENTS") {
-        let default_bucket = "mybucket".to_string();
-        let bucket = self.config.bucket.as_ref().unwrap_or(&default_bucket);
-        Ok(format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{bucket}\")"))
+        } else if query_upper.starts_with("SHOW MEASUREMENTS") {
+            Ok(format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{bucket}\")"))
         } else {
             // 简化版本：假设已经是 Flux 查询
             Ok(query.to_string())
@@ -678,7 +762,7 @@ mod tests {
             base_url: "http://localhost:8086".to_string(),
         };
 
-        // 测试用例
+        // 测试用例 - 支持多种 INSERT 语法
         let test_cases = vec![
             (
                 r#"INSERT INTO "testdb" cpu,host=server01 value=0.64"#,
@@ -691,6 +775,20 @@ mod tests {
             (
                 r#"INSERT INTO "my-db" temperature,location=room1 value=25.5"#,
                 Ok::<String, AppError>("temperature,location=room1 value=25.5".to_string()),
+            ),
+            // 新增：支持不带 INTO 的语法
+            (
+                r#"INSERT "testdb" cpu,host=server01 value=0.64"#,
+                Ok::<String, AppError>("cpu,host=server01 value=0.64".to_string()),
+            ),
+            (
+                r#"INSERT testdb memory,host=server01 value=0.32"#,
+                Ok::<String, AppError>("memory,host=server01 value=0.32".to_string()),
+            ),
+            // 新增：支持直接插入到默认数据库
+            (
+                r#"INSERT cpu,host=server01 value=0.64"#,
+                Ok::<String, AppError>("cpu,host=server01 value=0.64".to_string()),
             ),
         ];
 

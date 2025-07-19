@@ -88,43 +88,59 @@ export class QueryValidator {
       }
     }
     
-    // 检查是否有 INTO 关键字
-    if (!upperQuery.includes('INTO')) {
-      // 尝试自动修复 - 添加 INTO 和默认数据库
-      const correctedQuery = query.replace(/^INSERT\s+/i, 'INSERT INTO "your_database" ')
+    // 注释掉 INTO 关键字检查，允许更灵活的 INSERT 语法
+    // if (!upperQuery.includes('INTO')) {
+    //   // 尝试自动修复 - 添加 INTO 和默认数据库
+    //   const correctedQuery = query.replace(/^INSERT\s+/i, 'INSERT INTO "your_database" ')
+    //   return {
+    //     isValid: false,
+    //     error: 'INSERT 语句缺少 INTO 关键字和数据库名称',
+    //     suggestion: '请使用格式: INSERT INTO "database_name" measurement,tag_key=tag_value field_key="field_value"',
+    //     correctedQuery
+    //   }
+    // }
+    
+    // 检查数据库名称格式 - 支持带INTO和不带INTO的语法
+    let dbMatch = query.match(/INSERT\s+INTO\s+"([^"]+)"\s+(.+)/i)
+    if (!dbMatch) {
+      // 尝试匹配没有引号的数据库名（带INTO）
+      dbMatch = query.match(/INSERT\s+INTO\s+(\S+)\s+(.+)/i)
+    }
+    if (!dbMatch) {
+      // 尝试匹配不带INTO的语法：INSERT "database" measurement...
+      dbMatch = query.match(/INSERT\s+"([^"]+)"\s+(.+)/i)
+    }
+    if (!dbMatch) {
+      // 尝试匹配不带INTO和引号的语法：INSERT database measurement...
+      dbMatch = query.match(/INSERT\s+(\S+)\s+(.+)/i)
+    }
+    if (!dbMatch) {
       return {
         isValid: false,
-        error: 'INSERT 语句缺少 INTO 关键字和数据库名称',
-        suggestion: '请使用格式: INSERT INTO "database_name" measurement,tag_key=tag_value field_key="field_value"',
-        correctedQuery
+        error: 'INSERT 语句格式错误',
+        suggestion: '请使用格式: INSERT [INTO] [database_name] measurement,tag_key=tag_value field_key="field_value"'
       }
     }
     
-    // 检查数据库名称格式
-    const dbMatch = query.match(/INSERT\s+INTO\s+"([^"]+)"\s+(.+)/i)
-    if (!dbMatch) {
-      // 尝试匹配没有引号的数据库名
-      const dbMatchNoQuotes = query.match(/INSERT\s+INTO\s+(\S+)\s+(.+)/i)
-      if (!dbMatchNoQuotes) {
-        return {
-          isValid: false,
-          error: 'INSERT 语句格式错误',
-          suggestion: '请使用格式: INSERT INTO "database_name" measurement,tag_key=tag_value field_key="field_value"'
-        }
-      }
-    }
-    
-    // 检查是否有测量值名称和字段
-    const dataMatch = query.match(/INSERT\s+INTO\s+[^,\s]+,\s*([^,\s]+)/i)
+    // 检查是否有测量值名称和字段 - 支持多种INSERT语法
+    let dataMatch = query.match(/INSERT\s+INTO\s+[^,\s]+,\s*([^,\s]+)/i)
     if (!dataMatch) {
-      // 更宽松的匹配，允许没有逗号的情况
-      const dataMatchLoose = query.match(/INSERT\s+INTO\s+[^,\s]+\s+([^,\s]+)/i)
-      if (!dataMatchLoose) {
-        return {
-          isValid: false,
-          error: 'INSERT 语句缺少测量值名称',
-          suggestion: '请指定测量值名称，格式: INSERT INTO "database" measurement_name,tag_key=tag_value field_key="field_value"'
-        }
+      // 尝试匹配不带逗号的格式（带INTO）
+      dataMatch = query.match(/INSERT\s+INTO\s+[^,\s]+\s+([^,\s]+)/i)
+    }
+    if (!dataMatch) {
+      // 尝试匹配不带INTO的格式：INSERT "database" measurement,...
+      dataMatch = query.match(/INSERT\s+[^,\s]+,\s*([^,\s]+)/i)
+    }
+    if (!dataMatch) {
+      // 尝试匹配不带INTO和逗号的格式：INSERT "database" measurement ...
+      dataMatch = query.match(/INSERT\s+[^,\s]+\s+([^,\s]+)/i)
+    }
+    if (!dataMatch) {
+      return {
+        isValid: false,
+        error: 'INSERT 语句缺少测量值名称',
+        suggestion: '请指定测量值名称，格式: INSERT [INTO] [database] measurement_name,tag_key=tag_value field_key="field_value"'
       }
     }
     
@@ -137,13 +153,13 @@ export class QueryValidator {
       }
     }
     
-    // 检查是否有空格分隔标签和字段
+    // 检查是否有空格分隔标签和字段 - 支持更灵活的格式
     const parts = query.split(/\s+/)
-    if (parts.length < 4) {
+    if (parts.length < 3) {
       return {
         isValid: false,
         error: 'INSERT 语句格式不完整',
-        suggestion: '请确保包含数据库名、测量值、标签和字段'
+        suggestion: '请确保包含测量值、标签和字段，格式: INSERT [INTO] [database] measurement,tag_key=tag_value field_key="field_value"'
       }
     }
     

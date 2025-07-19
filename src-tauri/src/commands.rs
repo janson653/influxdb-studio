@@ -210,6 +210,7 @@ pub async fn get_database_info(
 #[tauri::command]
 pub async fn execute_query(
     connection_id: String,
+    database: String,
     query: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<QueryResult>, String> {
@@ -229,7 +230,7 @@ pub async fn execute_query(
     };
     
     // 执行查询
-    match service.query(&query).await {
+    match service.query_with_database(&query, &database).await {
         Ok(result) => Ok(ApiResponse {
             success: true,
             data: Some(result),
