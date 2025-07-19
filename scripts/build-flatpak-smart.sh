@@ -78,10 +78,10 @@ build_flatpak_smart() {
         flatpak update
     fi
     
-    # 安装 GNOME Platform 运行时 (使用兼容性最好的44版本)
-    if ! flatpak list | grep -q "org.gnome.Platform//44"; then
-        print_info "安装 GNOME Platform 44 运行时..."
-        flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
+    # 安装 GNOME Platform 运行时 (使用最新的47版本)
+    if ! flatpak list | grep -q "org.gnome.Platform//47"; then
+        print_info "安装 GNOME Platform 47 运行时..."
+        flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
     fi
     
     # 构建 Flatpak 包

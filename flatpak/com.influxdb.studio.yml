@@ -1,6 +1,6 @@
 app-id: com.influxdb.studio
 runtime: org.gnome.Platform
-runtime-version: '44'
+runtime-version: '47'
 sdk: org.gnome.Sdk
 command: influxdb-studio
 finish-args:
@@ -13,6 +13,10 @@ finish-args:
   - --socket=pulseaudio
   - --socket=session-bus
   - --socket=system-bus
+  - --share=network
+  - --allow=network
+  - --allow=network-client
+  - --allow=network-server
 modules:
   - name: influxdb-studio
     buildsystem: simple

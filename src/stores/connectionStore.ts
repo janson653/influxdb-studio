@@ -193,11 +193,26 @@ export const useConnectionStore = defineStore('connection', () => {
       setActiveConnection(id)
       return true
     } catch (error) {
+      // 改进错误处理
+      let errorMessage = '连接失败'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Connection refused')) {
+          errorMessage = '无法连接到 InfluxDB 服务器，请检查：\n1. InfluxDB 服务是否已启动\n2. 主机地址和端口是否正确\n3. 防火墙设置是否允许连接'
+        } else if (error.message.includes('timeout')) {
+          errorMessage = '连接超时，请检查网络连接和服务器状态'
+        } else if (error.message.includes('Network')) {
+          errorMessage = '网络连接失败，请检查网络设置'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       // 更新连接状态为错误
       connectionStatus.value[id] = {
         id,
         status: 'error',
-        error: error instanceof Error ? error.message : '连接失败'
+        error: errorMessage
       }
       return false
     }

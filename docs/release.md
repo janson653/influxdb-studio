@@ -96,7 +96,7 @@ git push origin v0.1.0
 - 完整的包测试和验证
 
 **矩阵构建**：
-- GNOME Platform 版本：47, 46, 45, 44
+- GNOME Platform 版本：47
 - 每个版本独立构建和测试
 - 选择最新稳定版本作为主要发布
 
@@ -135,10 +135,7 @@ fi
 #### 多版本支持
 ```yaml
 # 智能安装 GNOME Platform 运行时
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
-flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y || \
-flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
+flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
 ```
 
 ## 代码签名配置

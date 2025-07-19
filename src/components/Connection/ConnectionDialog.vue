@@ -162,6 +162,9 @@
         >
           {{ isEdit ? '保存' : '创建' }}
         </el-button>
+        <el-button @click="testConnection" :loading="isTesting">
+          测试连接
+        </el-button>
       </span>
     </template>
   </el-dialog>
@@ -172,6 +175,7 @@ import { ref, reactive, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { ConnectionProfile } from '../../types/influxdb'
 import { InfluxDBVersion } from '../../types/influxdb'
+import { ElMessage } from 'element-plus' // 导入 ElMessage
 
 // Props
 interface Props {
@@ -193,6 +197,7 @@ const emit = defineEmits<{
 // 响应式数据
 const formRef = ref<FormInstance>()
 const isSubmitting = ref(false)
+const isTesting = ref(false) // 新增：测试连接状态
 
 // 表单数据
 const form = reactive({
@@ -431,6 +436,73 @@ const handleSubmit = async () => {
 defineExpose({
   resetForm
 })
+
+// 测试连接方法
+const testConnection = async () => {
+  if (!formRef.value) return
+  
+  try {
+    await formRef.value.validate()
+    
+    isTesting.value = true
+    
+    // 构建测试配置
+    let config: any = {
+      host: form.host,
+      port: form.port,
+      useSsl: form.useSsl,
+      timeout: form.timeout
+    }
+    
+    if (form.version === InfluxDBVersion.V1) {
+      config = {
+        ...config,
+        database: form.database,
+        username: form.username || undefined,
+        password: form.password || undefined
+      }
+    } else if (form.version === InfluxDBVersion.V2) {
+      config = {
+        ...config,
+        token: form.token,
+        org: form.org,
+        bucket: form.bucket || undefined
+      }
+    } else if (form.version === InfluxDBVersion.V3) {
+      config = {
+        ...config,
+        token: form.token,
+        database: form.database
+      }
+    }
+    
+    // 创建测试连接配置
+    const testProfile: ConnectionProfile = {
+      id: 'test_' + Date.now(),
+      name: '测试连接',
+      version: form.version,
+      config,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    }
+    
+    // 调用后端测试连接
+    const { invoke } = await import('@tauri-apps/api/core')
+    const response = await invoke('test_connection', { profile: testProfile }) as any
+    
+    if (response.success) {
+      ElMessage.success('连接测试成功！')
+    } else {
+      ElMessage.error(`连接测试失败：${response.error || '未知错误'}`)
+    }
+    
+  } catch (error) {
+    console.error('连接测试失败:', error)
+    ElMessage.error(`连接测试失败：${error}`)
+  } finally {
+    isTesting.value = false
+  }
+}
 </script>
 
 <style scoped>

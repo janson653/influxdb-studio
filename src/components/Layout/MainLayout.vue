@@ -272,13 +272,36 @@ watch(isConnected, (connected) => {
 });
 
 onMounted(() => {
-  if (isConnected.value) loadDatabases();
+  // 检查是否有保存的连接配置
+  if (connections.value.length === 0) {
+    // 首次启动，显示欢迎界面
+    showWelcomeDialog();
+  } else if (isConnected.value) {
+    // 已有连接且已连接，加载数据
+    loadDatabases();
+  }
+  // 其他情况（有连接但未连接）由用户手动操作
   document.addEventListener('click', closeContextMenu);
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', closeContextMenu);
 });
+
+// 添加欢迎对话框
+const showWelcomeDialog = () => {
+  ElMessageBox.alert(
+    '欢迎使用 InfluxDB Studio！\n\n请先配置您的 InfluxDB 连接。',
+    '欢迎',
+    {
+      confirmButtonText: '添加连接',
+      type: 'info',
+      callback: () => {
+        showAddDialog();
+      }
+    }
+  );
+};
 
 // --- 右键菜单方法 ---
 const openContextMenu = (event: MouseEvent, node: any) => {

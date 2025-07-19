@@ -173,11 +173,8 @@ fi
 
 #### GNOME Platform 版本不兼容
 ```bash
-# 尝试安装不同版本的 GNOME Platform
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
-flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y || \
-flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
+# 安装 GNOME Platform 47 运行时
+flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
 ```
 
 ## 运行时问题

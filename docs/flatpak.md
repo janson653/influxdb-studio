@@ -173,16 +173,13 @@ else
 fi
 ```
 
-### 多版本支持
+### GNOME Platform 版本
 
-支持多个 GNOME Platform 版本：
+项目使用最新的 GNOME Platform 47 版本：
 
 ```bash
-# 智能安装 GNOME Platform 运行时
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
-flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y || \
-flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
+# 安装 GNOME Platform 47 运行时
+flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
 ```
 
 ### 备用构建方案
@@ -242,6 +239,48 @@ flatpak install influxdb-studio org.influxdb.studio
 
 ### 常见问题
 
+#### 应用启动后显示"Connection refused"错误
+
+**问题描述**: 应用启动后立即显示连接错误，无法连接到 localhost
+
+**原因分析**:
+1. 应用没有默认连接配置，但可能在某个地方尝试连接
+2. 用户没有配置 InfluxDB 连接
+3. InfluxDB 服务未启动
+
+**解决方案**:
+
+1. **首次启动引导**:
+   ```bash
+   # 应用会自动显示欢迎对话框，引导用户添加连接
+   # 点击"添加连接"按钮配置 InfluxDB 连接
+   ```
+
+2. **手动添加连接**:
+   - 点击左侧边栏的"+"按钮
+   - 填写 InfluxDB 服务器信息
+   - 使用"测试连接"功能验证配置
+   - 保存连接配置
+
+3. **启动 InfluxDB 服务**:
+   ```bash
+   # 使用 Docker 启动 InfluxDB
+   docker run -d -p 8086:8086 influxdb:latest
+   
+   # 或使用 Docker Compose
+   docker-compose up -d influxdb1
+   ```
+
+4. **检查网络权限**:
+   ```bash
+   # 检查 Flatpak 应用权限
+   flatpak info com.influxdb.studio
+   
+   # 重新安装应用以应用新的权限配置
+   flatpak uninstall com.influxdb.studio
+   flatpak install influxdb-studio.flatpak
+   ```
+
 #### appstream-compose 缺失
 
 **问题**: 构建时提示 `appstream-compose` 不可用
@@ -261,11 +300,8 @@ sudo apt install appstream-compose
 
 **解决方案**:
 ```bash
-# 尝试安装不同版本的 GNOME Platform
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
-flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y || \
-flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
+# 安装 GNOME Platform 47 运行时
+flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
 ```
 
 #### 权限问题
