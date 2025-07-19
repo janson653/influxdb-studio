@@ -99,6 +99,7 @@
                   node-key="id"
                   :expand-on-click-node="false"
                   @node-click="handleDatabaseClick"
+                  @node-dblclick="handleDatabaseDoubleClick"
                 >
                   <template #default="{ node, data }">
                     <span class="custom-tree-node">
@@ -263,6 +264,7 @@ import {
 import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'
 import { InfluxDBVersion } from '../types/influxdb'
+import { eventBus, Events } from '../utils/eventBus'
 
 // 路由
 const router = useRouter()
@@ -553,6 +555,32 @@ const handleDatabaseClick = async (data: any) => {
     await loadMeasurements(data.name)
   }
 }
+
+const handleDatabaseDoubleClick = (data: any) => {
+  console.log('[FE] 数据库浏览器中检测到双击事件', {
+    type: data.type,
+    name: data.name,
+    database: data.database,
+    fullData: data
+  });
+
+  // 只有measurement类型才支持双击替换SQL
+  if (data.type === 'measurement') {
+    console.log(`[FE] 双击的是一个表: ${data.name}，位于数据库: ${data.database}`);
+    // 触发事件，通知查询编辑器替换表名
+    eventBus.emit(Events.DOUBLE_CLICK_TABLE, {
+      tableName: data.name,
+      database: data.database
+    });
+    ElMessage.success(`已选择表: ${data.name}`);
+  } else if (data.type === 'database') {
+    console.log(`[FE] 双击的是一个数据库: ${data.name}`);
+    // 可以在此处添加针对双击数据库的逻辑，例如展开/折叠
+    // 目前，我们只记录日志
+  } else {
+    console.log(`[FE] 双击了一个未知类型的节点: ${data.type}`);
+  }
+};
 
 const loadMeasurements = async (database: string) => {
   if (!activeConnection.value || !isConnected.value) return

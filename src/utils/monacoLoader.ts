@@ -78,7 +78,7 @@ function configureMonaco(monaco: any) {
   // 设置 Monaco Editor 环境
   if (typeof window !== 'undefined') {
     (window as any).MonacoEnvironment = {
-      getWorkerUrl: function (moduleId: string, label: string) {
+      getWorkerUrl: function (_moduleId: string, label: string) {
         // 使用内联 worker 来避免跨域问题
         const workerScript = getWorkerScript(label)
         const blob = new Blob([workerScript], { type: 'application/javascript' })

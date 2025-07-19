@@ -258,12 +258,12 @@ const loadMeasurements = async (db: string) => {
 
 const getConnectionStatusType = () => {
   if (!connectionStatus.value) return 'info';
-  return { connected: 'success', connecting: 'warning', error: 'danger' }[connectionStatus.value.status] || 'info';
+  return { connected: 'success', connecting: 'warning', error: 'danger', disconnected: 'info' }[connectionStatus.value.status] || 'info';
 };
 
 const getConnectionStatusText = () => {
   if (!connectionStatus.value) return '未连接';
-  return { connected: '已连接', connecting: '连接中', error: '错误' }[connectionStatus.value.status] || '未连接';
+  return { connected: '已连接', connecting: '连接中', error: '错误', disconnected: '未连接' }[connectionStatus.value.status] || '未连接';
 };
 
 watch(isConnected, (connected) => {
