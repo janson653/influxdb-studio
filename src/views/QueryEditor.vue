@@ -4,14 +4,19 @@
       <el-header class="header">
         <div class="header-left">
           <h2>查询编辑器</h2>
-          <el-tag v-if="activeConnection" type="success">
-            {{ activeConnection.name }}
-          </el-tag>
+          <div v-if="activeConnection" class="connection-info">
+            <el-tag type="success">
+              {{ activeConnection.name }}
+            </el-tag>
+            <el-tag :type="getVersionTagType(activeConnection.version)" size="small">
+              {{ activeConnection.version }}
+            </el-tag>
+          </div>
         </div>
         <div class="header-right">
           <el-select 
             v-model="selectedDatabase" 
-            placeholder="选择数据库"
+            :placeholder="getDatabasePlaceholder()"
             style="width: 150px; margin-right: 10px;"
             @change="handleDatabaseChange"
           >
@@ -44,7 +49,7 @@
               <!-- 查询编辑器 -->
               <el-card>
                 <template #header>
-                  <span>查询编辑器</span>
+                  <span>查询编辑器 ({{ getQueryLanguageName() }})</span>
                   <div style="float: right;">
                     <el-button size="small" @click="clearQuery">清空</el-button>
                     <el-button size="small" @click="showQueryHistory">历史</el-button>
@@ -54,7 +59,7 @@
                 <div class="editor-container">
                   <MonacoEditor
                     v-model="currentQuery"
-                    language="sql"
+                    :language="getQueryLanguage()"
                     :options="editorOptions"
                     @change="handleQueryChange"
                   />
@@ -62,17 +67,17 @@
                 
                 <div class="editor-toolbar">
                   <el-button-group>
-                    <el-button size="small" @click="insertQuery('SELECT * FROM measurement LIMIT 10')">
+                    <el-button size="small" @click="insertQuery(getSelectQuery())">
                       SELECT
                     </el-button>
-                    <el-button size="small" @click="insertQuery('SHOW DATABASES')">
-                      SHOW DB
+                    <el-button size="small" @click="insertQuery(getShowDatabasesQuery())">
+                      {{ getShowDatabasesText() }}
                     </el-button>
-                    <el-button size="small" @click="insertQuery('SHOW MEASUREMENTS')">
-                      SHOW MEASUREMENTS
+                    <el-button size="small" @click="insertQuery(getShowMeasurementsQuery())">
+                      {{ getShowMeasurementsText() }}
                     </el-button>
-                    <el-button size="small" @click="insertQuery('SHOW SERIES')">
-                      SHOW SERIES
+                    <el-button size="small" @click="insertQuery(getShowSeriesQuery())">
+                      {{ getShowSeriesText() }}
                     </el-button>
                   </el-button-group>
                 </div>
@@ -187,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { VideoPlay } from '@element-plus/icons-vue'
@@ -195,6 +200,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'
 import { useQueryStore } from '../stores/queryStore'
 import type { QueryResult } from '../stores/queryStore'
+import { InfluxDBVersion } from '../types/influxdb'
 import MonacoEditor from '../components/Common/MonacoEditor.vue'
 
 // 路由
@@ -257,6 +263,125 @@ const tableColumns = computed(() => {
 })
 
 // 方法
+const getVersionTagType = (version: string) => {
+  switch (version) {
+    case InfluxDBVersion.V1: return 'info'
+    case InfluxDBVersion.V2: return 'warning'
+    case InfluxDBVersion.V3: return 'success'
+    default: return 'info'
+  }
+}
+
+const getQueryLanguage = () => {
+  if (!activeConnection.value) return 'sql'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'sql'
+    case InfluxDBVersion.V2: return 'flux'
+    case InfluxDBVersion.V3: return 'sql'
+    default: return 'sql'
+  }
+}
+
+const getQueryLanguageName = () => {
+  if (!activeConnection.value) return 'SQL'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'InfluxQL'
+    case InfluxDBVersion.V2: return 'Flux'
+    case InfluxDBVersion.V3: return 'SQL'
+    default: return 'SQL'
+  }
+}
+
+const getDatabasePlaceholder = () => {
+  if (!activeConnection.value) return '选择数据库'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return '选择数据库'
+    case InfluxDBVersion.V2: return '选择存储桶'
+    case InfluxDBVersion.V3: return '选择数据库'
+    default: return '选择数据库'
+  }
+}
+
+const getSelectQuery = () => {
+  if (!activeConnection.value) return 'SELECT * FROM measurement LIMIT 10'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SELECT * FROM measurement LIMIT 10'
+    case InfluxDBVersion.V2: return 'from(bucket: "mybucket")\n  |> range(start: -1h)\n  |> limit(n: 10)'
+    case InfluxDBVersion.V3: return 'SELECT * FROM measurement LIMIT 10'
+    default: return 'SELECT * FROM measurement LIMIT 10'
+  }
+}
+
+const getShowDatabasesQuery = () => {
+  if (!activeConnection.value) return 'SHOW DATABASES'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SHOW DATABASES'
+    case InfluxDBVersion.V2: return 'buckets()'
+    case InfluxDBVersion.V3: return 'SHOW DATABASES'
+    default: return 'SHOW DATABASES'
+  }
+}
+
+const getShowDatabasesText = () => {
+  if (!activeConnection.value) return 'SHOW DB'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SHOW DB'
+    case InfluxDBVersion.V2: return 'SHOW BUCKETS'
+    case InfluxDBVersion.V3: return 'SHOW DB'
+    default: return 'SHOW DB'
+  }
+}
+
+const getShowMeasurementsQuery = () => {
+  if (!activeConnection.value) return 'SHOW MEASUREMENTS'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SHOW MEASUREMENTS'
+    case InfluxDBVersion.V2: return 'import "influxdata/influxdb/schema"\nschema.measurements(bucket: "mybucket")'
+    case InfluxDBVersion.V3: return 'SHOW TABLES'
+    default: return 'SHOW MEASUREMENTS'
+  }
+}
+
+const getShowMeasurementsText = () => {
+  if (!activeConnection.value) return 'SHOW MEASUREMENTS'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SHOW MEASUREMENTS'
+    case InfluxDBVersion.V2: return 'SHOW MEASUREMENTS'
+    case InfluxDBVersion.V3: return 'SHOW TABLES'
+    default: return 'SHOW MEASUREMENTS'
+  }
+}
+
+const getShowSeriesQuery = () => {
+  if (!activeConnection.value) return 'SHOW SERIES'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SHOW SERIES'
+    case InfluxDBVersion.V2: return 'import "influxdata/influxdb/schema"\nschema.tagKeys(bucket: "mybucket")'
+    case InfluxDBVersion.V3: return 'SHOW COLUMNS'
+    default: return 'SHOW SERIES'
+  }
+}
+
+const getShowSeriesText = () => {
+  if (!activeConnection.value) return 'SHOW SERIES'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return 'SHOW SERIES'
+    case InfluxDBVersion.V2: return 'SHOW TAG KEYS'
+    case InfluxDBVersion.V3: return 'SHOW COLUMNS'
+    default: return 'SHOW SERIES'
+  }
+}
+
 const handleDatabaseChange = (database: string) => {
   selectedDatabase.value = database
 }
@@ -391,22 +516,19 @@ watch(() => route.query, (query) => {
 watch(() => activeConnection.value, (connection) => {
   if (connection) {
     loadDatabases()
+    // 根据版本设置默认查询
+    currentQuery.value = getSelectQuery()
   } else {
     databases.value = []
     selectedDatabase.value = ''
   }
 }, { immediate: true })
 
-// 生命周期
-onMounted(() => {
-  if (!activeConnection.value) {
-    ElMessage.warning('请先连接到数据库')
-  } else {
-    // 延迟初始化，确保组件完全挂载
-    setTimeout(() => {
-      // 初始化查询编辑器
-      console.log('查询编辑器初始化完成')
-    }, 100)
+// 监听版本变化，更新查询语言
+watch(() => activeConnection.value?.version, (version) => {
+  if (version) {
+    // 重新设置默认查询
+    currentQuery.value = getSelectQuery()
   }
 })
 </script>
@@ -429,12 +551,23 @@ onMounted(() => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .header-left h2 {
   margin: 0;
   color: #303133;
+}
+
+.connection-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .no-connection {
@@ -445,12 +578,12 @@ onMounted(() => {
 }
 
 .editor-content {
-  height: calc(100vh - 80px);
+  padding: 20px;
 }
 
 .editor-container {
   height: 300px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
 }
 
@@ -461,41 +594,38 @@ onMounted(() => {
 }
 
 .no-results {
-  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
 }
 
 .error-results {
-  padding: 20px 0;
-}
-
-.results-content {
-  height: 400px;
-  overflow: hidden;
+  padding: 20px;
 }
 
 .results-info {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
 .table-container {
-  height: 350px;
+  max-height: 400px;
   overflow: auto;
 }
 
 .json-container {
-  height: 350px;
+  max-height: 400px;
   overflow: auto;
-  background-color: #f8f9fa;
-  border: 1px solid #e4e7ed;
+  background-color: #f5f5f5;
+  padding: 15px;
   border-radius: 4px;
-  padding: 10px;
 }
 
 .json-container pre {
   margin: 0;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: 'Courier New', monospace;
   font-size: 12px;
   line-height: 1.4;
 }

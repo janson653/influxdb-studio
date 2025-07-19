@@ -50,13 +50,35 @@
                         <CircleCheckFilled v-else />
                       </el-icon>
                       <span>{{ row.name }}</span>
+                      <el-tag size="small" :type="getVersionTagType(row.version)">
+                        {{ row.version }}
+                      </el-tag>
                     </div>
                   </template>
                 </el-table-column>
                 
-                <el-table-column prop="host" label="主机地址" width="150" />
-                <el-table-column prop="port" label="端口" width="80" />
-                <el-table-column prop="database" label="默认数据库" width="120" />
+                <el-table-column prop="config.host" label="主机地址" width="150">
+                  <template #default="{ row }">
+                    {{ row.config.host }}
+                  </template>
+                </el-table-column>
+                
+                <el-table-column prop="config.port" label="端口" width="80">
+                  <template #default="{ row }">
+                    {{ row.config.port }}
+                  </template>
+                </el-table-column>
+                
+                <el-table-column label="数据库/组织" width="120">
+                  <template #default="{ row }">
+                    <span v-if="row.version === 'v1.x' || row.version === 'v3.x'">
+                      {{ getDatabaseName(row) }}
+                    </span>
+                    <span v-else-if="row.version === 'v2.x'">
+                      {{ getOrgName(row) }}
+                    </span>
+                  </template>
+                </el-table-column>
                 
                 <el-table-column label="状态" width="100">
                   <template #default="{ row }">
@@ -117,23 +139,33 @@
                 <el-descriptions-item label="连接名称">
                   {{ selectedConnection.name }}
                 </el-descriptions-item>
+                <el-descriptions-item label="InfluxDB 版本">
+                  <el-tag :type="getVersionTagType(selectedConnection.version)">
+                    {{ selectedConnection.version }}
+                  </el-tag>
+                </el-descriptions-item>
                 <el-descriptions-item label="主机地址">
-                  {{ selectedConnection.host }}
+                  {{ selectedConnection.config.host }}
                 </el-descriptions-item>
                 <el-descriptions-item label="端口">
-                  {{ selectedConnection.port }}
+                  {{ selectedConnection.config.port }}
                 </el-descriptions-item>
-                <el-descriptions-item label="默认数据库">
-                  {{ selectedConnection.database || '未设置' }}
-                </el-descriptions-item>
-                <el-descriptions-item label="用户名">
-                  {{ selectedConnection.username || '未设置' }}
+                <el-descriptions-item 
+                  :label="selectedConnection.version === 'v2.x' ? '组织' : '数据库'"
+                >
+                  {{ getDatabaseOrOrgName(selectedConnection) }}
                 </el-descriptions-item>
                 <el-descriptions-item label="SSL">
-                  {{ selectedConnection.useSsl ? '启用' : '禁用' }}
+                  {{ selectedConnection.config.useSsl ? '启用' : '禁用' }}
                 </el-descriptions-item>
                 <el-descriptions-item label="超时时间">
-                  {{ selectedConnection.timeout }}ms
+                  {{ selectedConnection.config.timeout }}ms
+                </el-descriptions-item>
+                <el-descriptions-item label="创建时间">
+                  {{ formatDate(selectedConnection.createdAt) }}
+                </el-descriptions-item>
+                <el-descriptions-item label="更新时间">
+                  {{ formatDate(selectedConnection.updatedAt) }}
                 </el-descriptions-item>
               </el-descriptions>
               
@@ -194,7 +226,8 @@ import {
   CircleCheckFilled 
 } from '@element-plus/icons-vue'
 import { useConnectionStore } from '../stores/connectionStore'
-import type { ConnectionConfig } from '../stores/connectionStore'
+import type { ConnectionProfile } from '../types/influxdb'
+import { InfluxDBVersion } from '../types/influxdb'
 import ConnectionDialog from '../components/Connection/ConnectionDialog.vue'
 
 // 路由
@@ -205,8 +238,8 @@ const connectionStore = useConnectionStore()
 
 // 响应式数据
 const showDialog = ref(false)
-const editingConnection = ref<ConnectionConfig | null>(null)
-const selectedConnection = ref<ConnectionConfig | null>(null)
+const editingConnection = ref<ConnectionProfile | null>(null)
+const selectedConnection = ref<ConnectionProfile | null>(null)
 
 // 计算属性
 const connections = computed(() => connectionStore.connections)
@@ -217,12 +250,12 @@ const showAddDialog = () => {
   showDialog.value = true
 }
 
-const editConnection = (connection: ConnectionConfig) => {
+const editConnection = (connection: ConnectionProfile) => {
   editingConnection.value = { ...connection }
   showDialog.value = true
 }
 
-const handleSaveConnection = (connection: ConnectionConfig) => {
+const handleSaveConnection = (connection: ConnectionProfile) => {
   connectionStore.addConnection(connection)
   ElMessage.success('连接配置已保存')
   showDialog.value = false
@@ -285,7 +318,7 @@ const testAllConnections = async () => {
   ElMessage.success('所有连接测试完成')
 }
 
-const handleRowClick = (row: ConnectionConfig) => {
+const handleRowClick = (row: ConnectionProfile) => {
   selectedConnection.value = row
 }
 
@@ -321,6 +354,42 @@ const getStatusText = (id: string) => {
     case 'connecting': return '连接中'
     default: return '未连接'
   }
+}
+
+const getVersionTagType = (version: string) => {
+  switch (version) {
+    case InfluxDBVersion.V1: return 'info'
+    case InfluxDBVersion.V2: return 'warning'
+    case InfluxDBVersion.V3: return 'success'
+    default: return 'info'
+  }
+}
+
+const getDatabaseName = (connection: ConnectionProfile) => {
+  if (connection.version === InfluxDBVersion.V1 || connection.version === InfluxDBVersion.V3) {
+    return (connection.config as any).database || '未设置'
+  }
+  return 'N/A'
+}
+
+const getOrgName = (connection: ConnectionProfile) => {
+  if (connection.version === InfluxDBVersion.V2) {
+    return (connection.config as any).org || '未设置'
+  }
+  return 'N/A'
+}
+
+const getDatabaseOrOrgName = (connection: ConnectionProfile) => {
+  if (connection.version === InfluxDBVersion.V1 || connection.version === InfluxDBVersion.V3) {
+    return (connection.config as any).database || '未设置'
+  } else if (connection.version === InfluxDBVersion.V2) {
+    return (connection.config as any).org || '未设置'
+  }
+  return '未设置'
+}
+
+const formatDate = (timestamp: number) => {
+  return new Date(timestamp).toLocaleString('zh-CN')
 }
 
 const importConnections = () => {

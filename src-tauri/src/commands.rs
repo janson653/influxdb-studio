@@ -1,21 +1,22 @@
-use crate::models::{ConnectionConfig, ApiResponse, DatabaseInfo, QueryResult};
-use crate::influxdb::InfluxDbClient;
+use crate::models::{ConnectionProfile, ApiResponse, QueryResult, DatabaseInfo};
+use crate::influxdb::{InfluxDBService, create_influxdb_service};
+
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 use tauri::State;
 
-// 全局连接管理器类型
-type ConnectionMap = Mutex<HashMap<String, InfluxDbClient>>;
+// 连接映射类型
+pub type ConnectionMap = Mutex<HashMap<String, Arc<InfluxDBService>>>;
 
 /// 测试连接
 #[tauri::command]
-pub async fn test_connection(config: ConnectionConfig) -> Result<ApiResponse<bool>, String> {
-    tracing::info!("Testing connection to {}:{}", config.host, config.port);
+pub async fn test_connection(profile: ConnectionProfile) -> Result<ApiResponse<bool>, String> {
+    tracing::info!("Testing connection to {}:{}", profile.config.get("host").unwrap_or(&serde_json::Value::Null), profile.config.get("port").unwrap_or(&serde_json::Value::Null));
     
-    match InfluxDbClient::new(config.clone()).await {
-        Ok(client) => {
+    match create_influxdb_service(&profile).await {
+        Ok(service) => {
             // 尝试 ping 服务器
-            match client.ping().await {
+            match service.ping().await {
                 Ok(true) => {
                     tracing::info!("Connection test successful");
                     Ok(ApiResponse {
@@ -43,11 +44,11 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<ApiResponse<boo
             }
         },
         Err(e) => {
-            tracing::error!("Failed to create client: {}", e);
+            tracing::error!("Failed to create service: {}", e);
             Ok(ApiResponse {
                 success: false,
                 data: Some(false),
-                error: Some(format!("Failed to create client: {e}")),
+                error: Some(format!("Failed to create service: {e}")),
             })
         }
     }
@@ -56,14 +57,14 @@ pub async fn test_connection(config: ConnectionConfig) -> Result<ApiResponse<boo
 /// 连接到数据库
 #[tauri::command]
 pub async fn connect_to_database(
-    config: ConnectionConfig,
+    profile: ConnectionProfile,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<String>, String> {
-    let connection_id = format!("{}_{}", config.host, config.port);
+    let connection_id = profile.id.clone();
     
-    // 创建客户端
-    let client = match InfluxDbClient::new(config).await {
-        Ok(client) => client,
+    // 创建服务
+    let service = match create_influxdb_service(&profile).await {
+        Ok(service) => service,
         Err(e) => {
             return Ok(ApiResponse {
                 success: false,
@@ -76,7 +77,7 @@ pub async fn connect_to_database(
     // 存储连接
     {
         let mut conn_map = connections.lock().unwrap();
-        conn_map.insert(connection_id.clone(), client);
+        conn_map.insert(connection_id.clone(), Arc::new(service));
     }
     
     Ok(ApiResponse {
@@ -114,11 +115,11 @@ pub async fn get_databases(
     connection_id: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<Vec<String>>, String> {
-    // 获取客户端引用
-    let client = {
+    // 获取服务引用
+    let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
-            Some(client) => client.clone(),
+            Some(service) => service.clone(),
             None => {
                 return Ok(ApiResponse {
                     success: false,
@@ -130,7 +131,7 @@ pub async fn get_databases(
     };
     
     // 执行查询
-    match client.get_databases().await {
+    match service.get_databases().await {
         Ok(databases) => Ok(ApiResponse {
             success: true,
             data: Some(databases),
@@ -151,11 +152,11 @@ pub async fn get_database_info(
     database: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<DatabaseInfo>, String> {
-    // 获取客户端引用
-    let client = {
+    // 获取服务引用
+    let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
-            Some(client) => client.clone(),
+            Some(service) => service.clone(),
             None => {
                 return Ok(ApiResponse {
                     success: false,
@@ -167,7 +168,7 @@ pub async fn get_database_info(
     };
     
     // 执行查询
-    match client.get_database_info(&database).await {
+    match service.get_database_info(&database).await {
         Ok(info) => Ok(ApiResponse {
             success: true,
             data: Some(info),
@@ -185,15 +186,14 @@ pub async fn get_database_info(
 #[tauri::command]
 pub async fn execute_query(
     connection_id: String,
-    database: String,
     query: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<QueryResult>, String> {
-    // 获取客户端引用
-    let client = {
+    // 获取服务引用
+    let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
-            Some(client) => client.clone(),
+            Some(service) => service.clone(),
             None => {
                 return Ok(ApiResponse {
                     success: false,
@@ -205,7 +205,7 @@ pub async fn execute_query(
     };
     
     // 执行查询
-    match client.query(&database, &query).await {
+    match service.query(&query).await {
         Ok(result) => Ok(ApiResponse {
             success: true,
             data: Some(result),
@@ -226,11 +226,11 @@ pub async fn create_database(
     database: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<bool>, String> {
-    // 获取客户端引用
-    let client = {
+    // 获取服务引用
+    let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
-            Some(client) => client.clone(),
+            Some(service) => service.clone(),
             None => {
                 return Ok(ApiResponse {
                     success: false,
@@ -241,8 +241,9 @@ pub async fn create_database(
         }
     };
     
-    // 执行创建
-    match client.create_database(&database).await {
+    // 执行创建数据库查询
+    let query = format!("CREATE DATABASE \"{database}\"");
+    match service.query(&query).await {
         Ok(_) => Ok(ApiResponse {
             success: true,
             data: Some(true),
@@ -263,11 +264,11 @@ pub async fn drop_database(
     database: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<bool>, String> {
-    // 获取客户端引用
-    let client = {
+    // 获取服务引用
+    let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
-            Some(client) => client.clone(),
+            Some(service) => service.clone(),
             None => {
                 return Ok(ApiResponse {
                     success: false,
@@ -278,8 +279,9 @@ pub async fn drop_database(
         }
     };
     
-    // 执行删除
-    match client.drop_database(&database).await {
+    // 执行删除数据库查询
+    let query = format!("DROP DATABASE \"{database}\"");
+    match service.query(&query).await {
         Ok(_) => Ok(ApiResponse {
             success: true,
             data: Some(true),
@@ -300,11 +302,11 @@ pub async fn get_measurements(
     database: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<Vec<String>>, String> {
-    // 获取客户端引用
-    let client = {
+    // 获取服务引用
+    let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
-            Some(client) => client.clone(),
+            Some(service) => service.clone(),
             None => {
                 return Ok(ApiResponse {
                     success: false,
@@ -316,7 +318,7 @@ pub async fn get_measurements(
     };
     
     // 执行查询
-    match client.get_measurements(&database).await {
+    match service.get_measurements(&database).await {
         Ok(measurements) => Ok(ApiResponse {
             success: true,
             data: Some(measurements),

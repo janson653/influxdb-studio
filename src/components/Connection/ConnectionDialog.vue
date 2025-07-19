@@ -2,14 +2,14 @@
   <el-dialog
     v-model="visible"
     :title="isEdit ? '编辑连接' : '新建连接'"
-    width="500px"
+    width="600px"
     @close="handleClose"
   >
     <el-form
       ref="formRef"
       :model="form"
       :rules="rules"
-      label-width="100px"
+      label-width="120px"
       @submit.prevent="handleSubmit"
     >
       <el-form-item label="连接名称" prop="name">
@@ -20,6 +20,22 @@
           show-word-limit
         />
       </el-form-item>
+      
+      <el-form-item label="InfluxDB 版本" prop="version">
+        <el-select 
+          v-model="form.version" 
+          placeholder="请选择 InfluxDB 版本"
+          style="width: 100%"
+          @change="handleVersionChange"
+        >
+          <el-option label="InfluxDB v1.x" :value="InfluxDBVersion.V1" />
+          <el-option label="InfluxDB v2.x" :value="InfluxDBVersion.V2" />
+          <el-option label="InfluxDB v3.x" :value="InfluxDBVersion.V3" />
+        </el-select>
+      </el-form-item>
+      
+      <!-- 通用配置 -->
+      <el-divider content-position="left">连接配置</el-divider>
       
       <el-form-item label="主机地址" prop="host">
         <el-input 
@@ -35,55 +51,6 @@
           :max="65535"
           placeholder="8086"
           style="width: 100%"
-        />
-      </el-form-item>
-      
-      <el-form-item label="默认数据库" prop="database">
-        <el-input 
-          v-model="form.database" 
-          placeholder="可选，连接后选择数据库"
-        />
-      </el-form-item>
-      
-      <el-form-item label="用户名" prop="username">
-        <el-input 
-          v-model="form.username" 
-          placeholder="可选，留空表示匿名访问"
-        />
-      </el-form-item>
-      
-      <el-form-item label="密码" prop="password">
-        <el-input 
-          v-model="form.password" 
-          type="password"
-          placeholder="可选，留空表示匿名访问"
-          show-password
-        />
-      </el-form-item>
-      
-      <!-- InfluxDB 2.x 配置 -->
-      <el-divider content-position="left">InfluxDB 2.x 配置</el-divider>
-      
-      <el-form-item label="Token" prop="token">
-        <el-input 
-          v-model="form.token" 
-          type="password"
-          placeholder="InfluxDB 2.x Token（可选）"
-          show-password
-        />
-      </el-form-item>
-      
-      <el-form-item label="组织(Org)" prop="org">
-        <el-input 
-          v-model="form.org" 
-          placeholder="InfluxDB 2.x 组织名称（可选）"
-        />
-      </el-form-item>
-      
-      <el-form-item label="存储桶(Bucket)" prop="bucket">
-        <el-input 
-          v-model="form.bucket" 
-          placeholder="InfluxDB 2.x 存储桶名称（可选）"
         />
       </el-form-item>
       
@@ -106,6 +73,83 @@
         />
         <span style="margin-left: 8px; color: #909399;">毫秒</span>
       </el-form-item>
+      
+      <!-- InfluxDB v1.x 配置 -->
+      <template v-if="form.version === InfluxDBVersion.V1">
+        <el-divider content-position="left">InfluxDB v1.x 配置</el-divider>
+        
+        <el-form-item label="数据库" prop="database">
+          <el-input 
+            v-model="form.database" 
+            placeholder="请输入数据库名称"
+          />
+        </el-form-item>
+        
+        <el-form-item label="用户名" prop="username">
+          <el-input 
+            v-model="form.username" 
+            placeholder="可选，留空表示匿名访问"
+          />
+        </el-form-item>
+        
+        <el-form-item label="密码" prop="password">
+          <el-input 
+            v-model="form.password" 
+            type="password"
+            placeholder="可选，留空表示匿名访问"
+            show-password
+          />
+        </el-form-item>
+      </template>
+      
+      <!-- InfluxDB v2.x 配置 -->
+      <template v-if="form.version === InfluxDBVersion.V2">
+        <el-divider content-position="left">InfluxDB v2.x 配置</el-divider>
+        
+        <el-form-item label="Token" prop="token">
+          <el-input 
+            v-model="form.token" 
+            type="password"
+            placeholder="请输入 InfluxDB 2.x Token"
+            show-password
+          />
+        </el-form-item>
+        
+        <el-form-item label="组织(Org)" prop="org">
+          <el-input 
+            v-model="form.org" 
+            placeholder="请输入组织名称"
+          />
+        </el-form-item>
+        
+        <el-form-item label="存储桶(Bucket)" prop="bucket">
+          <el-input 
+            v-model="form.bucket" 
+            placeholder="可选，连接后选择存储桶"
+          />
+        </el-form-item>
+      </template>
+      
+      <!-- InfluxDB v3.x 配置 -->
+      <template v-if="form.version === InfluxDBVersion.V3">
+        <el-divider content-position="left">InfluxDB v3.x 配置</el-divider>
+        
+        <el-form-item label="Token" prop="token">
+          <el-input 
+            v-model="form.token" 
+            type="password"
+            placeholder="请输入 InfluxDB 3.x Token"
+            show-password
+          />
+        </el-form-item>
+        
+        <el-form-item label="数据库" prop="database">
+          <el-input 
+            v-model="form.database" 
+            placeholder="请输入数据库名称"
+          />
+        </el-form-item>
+      </template>
     </el-form>
     
     <template #footer>
@@ -124,14 +168,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import type { ConnectionConfig } from '../../stores/connectionStore'
+import type { ConnectionProfile } from '../../types/influxdb'
+import { InfluxDBVersion } from '../../types/influxdb'
 
 // Props
 interface Props {
   modelValue: boolean
-  connection?: ConnectionConfig | null
+  connection?: ConnectionProfile | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -142,7 +187,7 @@ const props = withDefaults(defineProps<Props>(), {
 // Emits
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'save': [connection: ConnectionConfig]
+  'save': [connection: ConnectionProfile]
 }>()
 
 // 响应式数据
@@ -153,42 +198,75 @@ const isSubmitting = ref(false)
 const form = reactive({
   id: '',
   name: '',
+  version: InfluxDBVersion.V1,
   host: 'localhost',
   port: 8086,
+  useSsl: false,
+  timeout: 5000,
+  // v1.x 字段
   database: '',
   username: '',
   password: '',
-  useSsl: false,
-  timeout: 5000,
-  // InfluxDB 2.x 字段
+  // v2.x 字段
   token: '',
   org: '',
-  bucket: ''
+  bucket: '',
+  // v3.x 字段 (database 复用 v1.x 的字段)
 })
 
-// 表单验证规则
-const rules: FormRules = {
-  name: [
-    { required: true, message: '请输入连接名称', trigger: 'blur' },
-    { min: 1, max: 50, message: '连接名称长度在 1 到 50 个字符', trigger: 'blur' }
-  ],
-  host: [
-    { required: true, message: '请输入主机地址', trigger: 'blur' },
-    { 
-      pattern: /^[a-zA-Z0-9.-]+$/, 
-      message: '主机地址格式不正确', 
-      trigger: 'blur' 
-    }
-  ],
-  port: [
-    { required: true, message: '请输入端口号', trigger: 'blur' },
-    { type: 'number', min: 1, max: 65535, message: '端口号必须在 1-65535 之间', trigger: 'blur' }
-  ],
-  timeout: [
-    { required: true, message: '请输入超时时间', trigger: 'blur' },
-    { type: 'number', min: 1000, max: 60000, message: '超时时间必须在 1000-60000 毫秒之间', trigger: 'blur' }
-  ]
+// 动态表单验证规则
+const getRules = (): FormRules => {
+  const baseRules: FormRules = {
+    name: [
+      { required: true, message: '请输入连接名称', trigger: 'blur' },
+      { min: 1, max: 50, message: '连接名称长度在 1 到 50 个字符', trigger: 'blur' }
+    ],
+    version: [
+      { required: true, message: '请选择 InfluxDB 版本', trigger: 'change' }
+    ],
+    host: [
+      { required: true, message: '请输入主机地址', trigger: 'blur' },
+      { 
+        pattern: /^[a-zA-Z0-9.-]+$/, 
+        message: '主机地址格式不正确', 
+        trigger: 'blur' 
+      }
+    ],
+    port: [
+      { required: true, message: '请输入端口号', trigger: 'blur' },
+      { type: 'number', min: 1, max: 65535, message: '端口号必须在 1-65535 之间', trigger: 'blur' }
+    ],
+    timeout: [
+      { required: true, message: '请输入超时时间', trigger: 'blur' },
+      { type: 'number', min: 1000, max: 60000, message: '超时时间必须在 1000-60000 毫秒之间', trigger: 'blur' }
+    ]
+  }
+
+  // 根据版本添加特定验证规则
+  if (form.version === InfluxDBVersion.V1) {
+    baseRules.database = [
+      { required: true, message: '请输入数据库名称', trigger: 'blur' }
+    ]
+  } else if (form.version === InfluxDBVersion.V2) {
+    baseRules.token = [
+      { required: true, message: '请输入 Token', trigger: 'blur' }
+    ]
+    baseRules.org = [
+      { required: true, message: '请输入组织名称', trigger: 'blur' }
+    ]
+  } else if (form.version === InfluxDBVersion.V3) {
+    baseRules.token = [
+      { required: true, message: '请输入 Token', trigger: 'blur' }
+    ]
+    baseRules.database = [
+      { required: true, message: '请输入数据库名称', trigger: 'blur' }
+    ]
+  }
+
+  return baseRules
 }
+
+const rules = computed(() => getRules())
 
 // 计算属性
 const visible = computed({
@@ -203,16 +281,40 @@ const resetFormData = () => {
   Object.assign(form, {
     id: '',
     name: '',
+    version: InfluxDBVersion.V1,
     host: 'localhost',
     port: 8086,
+    useSsl: false,
+    timeout: 5000,
     database: '',
     username: '',
     password: '',
-    useSsl: false,
-    timeout: 5000,
     token: '',
     org: '',
     bucket: ''
+  })
+}
+
+const handleVersionChange = () => {
+  // 版本切换时清空相关字段
+  if (form.version === InfluxDBVersion.V1) {
+    form.token = ''
+    form.org = ''
+    form.bucket = ''
+  } else if (form.version === InfluxDBVersion.V2) {
+    form.database = ''
+    form.username = ''
+    form.password = ''
+  } else if (form.version === InfluxDBVersion.V3) {
+    form.username = ''
+    form.password = ''
+    form.org = ''
+    form.bucket = ''
+  }
+  
+  // 重新验证表单
+  nextTick(() => {
+    formRef.value?.clearValidate()
   })
 }
 
@@ -220,7 +322,30 @@ const resetFormData = () => {
 watch(() => props.connection, (newConnection) => {
   if (newConnection) {
     // 编辑模式，填充表单数据
-    Object.assign(form, newConnection)
+    Object.assign(form, {
+      id: newConnection.id,
+      name: newConnection.name,
+      version: newConnection.version,
+      host: newConnection.config.host,
+      port: newConnection.config.port,
+      useSsl: newConnection.config.useSsl,
+      timeout: newConnection.config.timeout,
+      // 根据版本填充对应字段
+      ...(newConnection.version === InfluxDBVersion.V1 && {
+        database: (newConnection.config as any).database,
+        username: (newConnection.config as any).username || '',
+        password: (newConnection.config as any).password || ''
+      }),
+      ...(newConnection.version === InfluxDBVersion.V2 && {
+        token: (newConnection.config as any).token,
+        org: (newConnection.config as any).org,
+        bucket: (newConnection.config as any).bucket || ''
+      }),
+      ...(newConnection.version === InfluxDBVersion.V3 && {
+        token: (newConnection.config as any).token,
+        database: (newConnection.config as any).database
+      })
+    })
   } else {
     // 新建模式，重置表单数据
     resetFormData()
@@ -252,24 +377,48 @@ const handleSubmit = async () => {
       form.id = `conn_${Date.now()}`
     }
     
-    // 创建连接配置对象
-    const connectionConfig: ConnectionConfig = {
-      id: form.id,
-      name: form.name,
+    // 根据版本构建配置对象
+    let config: any = {
       host: form.host,
       port: form.port,
-      database: form.database || undefined,
-      username: form.username || undefined,
-      password: form.password || undefined,
       useSsl: form.useSsl,
-      timeout: form.timeout,
-      token: form.token || undefined,
-      org: form.org || undefined,
-      bucket: form.bucket || undefined
+      timeout: form.timeout
+    }
+    
+    if (form.version === InfluxDBVersion.V1) {
+      config = {
+        ...config,
+        database: form.database,
+        username: form.username || undefined,
+        password: form.password || undefined
+      }
+    } else if (form.version === InfluxDBVersion.V2) {
+      config = {
+        ...config,
+        token: form.token,
+        org: form.org,
+        bucket: form.bucket || undefined
+      }
+    } else if (form.version === InfluxDBVersion.V3) {
+      config = {
+        ...config,
+        token: form.token,
+        database: form.database
+      }
+    }
+    
+    // 创建连接配置对象
+    const connectionProfile: ConnectionProfile = {
+      id: form.id,
+      name: form.name,
+      version: form.version,
+      config,
+      createdAt: props.connection?.createdAt || Date.now(),
+      updatedAt: Date.now()
     }
     
     // 触发保存事件
-    emit('save', connectionConfig)
+    emit('save', connectionProfile)
     
   } catch (error) {
     console.error('表单验证失败:', error)

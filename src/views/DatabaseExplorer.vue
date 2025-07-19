@@ -3,10 +3,15 @@
     <el-container>
       <el-header class="header">
         <div class="header-left">
-          <h2>数据库浏览器</h2>
-          <el-tag v-if="activeConnection" type="success">
-            {{ activeConnection.name }}
-          </el-tag>
+          <h2>{{ getExplorerTitle() }}</h2>
+          <div v-if="activeConnection" class="connection-info">
+            <el-tag type="success">
+              {{ activeConnection.name }}
+            </el-tag>
+            <el-tag :type="getVersionTagType(activeConnection.version)" size="small">
+              {{ activeConnection.version }}
+            </el-tag>
+          </div>
         </div>
         <div class="header-right">
           <el-button @click="refreshData" :loading="isLoading">
@@ -28,11 +33,12 @@
         <div v-else class="explorer-content">
           <el-row :gutter="20">
             <el-col :span="8">
-              <!-- 数据库列表 -->
+              <!-- 数据库/存储桶列表 -->
               <el-card>
                 <template #header>
-                  <span>数据库</span>
+                  <span>{{ getDatabaseListTitle() }}</span>
                   <el-button 
+                    v-if="canCreateDatabase()"
                     style="float: right; padding: 3px 0" 
                     type="text"
                     @click="showCreateDatabaseDialog"
@@ -74,15 +80,15 @@
               <!-- 详细信息 -->
               <el-card v-if="selectedItem">
                 <template #header>
-                  <span>{{ selectedItem.type === 'database' ? '数据库信息' : '测量值信息' }}</span>
+                  <span>{{ getDetailTitle() }}</span>
                 </template>
                 
                 <div v-if="selectedItem.type === 'database'">
                   <el-descriptions :column="2" border>
-                    <el-descriptions-item label="数据库名称">
+                    <el-descriptions-item :label="getDatabaseNameLabel()">
                       {{ selectedItem.name }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="测量值数量">
+                    <el-descriptions-item :label="getMeasurementCountLabel()">
                       {{ selectedItem.measurementCount || 0 }}
                     </el-descriptions-item>
                     <el-descriptions-item label="系列数量">
@@ -97,18 +103,22 @@
                     <el-button type="primary" @click="openQueryEditor">
                       查询数据
                     </el-button>
-                    <el-button type="warning" @click="showDeleteDatabaseDialog">
-                      删除数据库
+                    <el-button 
+                      v-if="canDeleteDatabase()"
+                      type="warning" 
+                      @click="showDeleteDatabaseDialog"
+                    >
+                      删除{{ getDatabaseNameLabel() }}
                     </el-button>
                   </div>
                 </div>
                 
                 <div v-else-if="selectedItem.type === 'measurement'">
                   <el-descriptions :column="2" border>
-                    <el-descriptions-item label="测量值名称">
+                    <el-descriptions-item :label="getMeasurementNameLabel()">
                       {{ selectedItem.name }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="所属数据库">
+                    <el-descriptions-item :label="getDatabaseNameLabel()">
                       {{ selectedItem.database }}
                     </el-descriptions-item>
                     <el-descriptions-item label="标签键数量">
@@ -153,8 +163,12 @@
                     <el-button type="primary" @click="openQueryEditor">
                       查询数据
                     </el-button>
-                    <el-button type="warning" @click="showDeleteMeasurementDialog">
-                      删除测量值
+                    <el-button 
+                      v-if="canDeleteMeasurement()"
+                      type="warning" 
+                      @click="showDeleteMeasurementDialog"
+                    >
+                      删除{{ getMeasurementNameLabel() }}
                     </el-button>
                   </div>
                 </div>
@@ -164,7 +178,7 @@
                 <template #header>
                   <span>欢迎</span>
                 </template>
-                <el-empty description="请选择一个数据库或测量值查看详细信息" />
+                <el-empty :description="`请选择一个${getDatabaseNameLabel()}或${getMeasurementNameLabel()}查看详细信息`" />
               </el-card>
             </el-col>
           </el-row>
@@ -173,10 +187,10 @@
     </el-container>
     
     <!-- 新建数据库对话框 -->
-    <el-dialog v-model="showCreateDatabase" title="新建数据库" width="400px">
+    <el-dialog v-model="showCreateDatabase" :title="`新建${getDatabaseNameLabel()}`" width="400px">
       <el-form :model="newDatabaseForm" :rules="databaseRules" ref="databaseFormRef">
-        <el-form-item label="数据库名称" prop="name">
-          <el-input v-model="newDatabaseForm.name" placeholder="请输入数据库名称" />
+        <el-form-item :label="`${getDatabaseNameLabel()}名称`" prop="name">
+          <el-input v-model="newDatabaseForm.name" :placeholder="`请输入${getDatabaseNameLabel()}名称`" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -199,12 +213,14 @@ import {
   Document, 
   FolderOpened 
 } from '@element-plus/icons-vue'
+import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'
+import { InfluxDBVersion } from '../types/influxdb'
 
 // 路由
 const router = useRouter()
 
-// 连接状态管理
+// 状态管理
 const connectionStore = useConnectionStore()
 
 // 响应式数据
@@ -212,10 +228,22 @@ const isLoading = ref(false)
 const selectedItem = ref<any>(null)
 const activeTab = ref('tags')
 const showCreateDatabase = ref(false)
-const newDatabaseForm = ref({ name: '' })
-const databaseFormRef = ref()
+const newDatabaseForm = ref({
+  name: ''
+})
 
-// 树形数据配置
+// 数据库树数据
+const databaseTreeData = ref<any[]>([])
+
+// 表单验证规则
+const databaseRules = {
+  name: [
+    { required: true, message: '请输入名称', trigger: 'blur' },
+    { min: 1, max: 50, message: '名称长度在 1 到 50 个字符', trigger: 'blur' }
+  ]
+}
+
+// 树配置
 const treeProps = {
   children: 'children',
   label: 'name'
@@ -224,106 +252,219 @@ const treeProps = {
 // 计算属性
 const activeConnection = computed(() => connectionStore.activeConnectionConfig)
 
-const databaseTreeData = computed(() => {
-  if (!activeConnection.value) return []
-  
-  // 模拟数据库树形数据
-  return [
-    {
-      id: 'db1',
-      name: 'test_db',
-      type: 'database',
-      measurementCount: 3,
-      seriesCount: 10,
-      pointCount: 1000,
-      children: [
-        {
-          id: 'm1',
-          name: 'cpu_usage',
-          type: 'measurement',
-          database: 'test_db',
-          count: 100,
-          tagKeys: [
-            { key: 'host', values: ['server1', 'server2', 'server3'] },
-            { key: 'region', values: ['us-west', 'us-east'] }
-          ],
-          fieldKeys: [
-            { key: 'value', type: 'float' },
-            { key: 'unit', type: 'string' }
-          ]
-        },
-        {
-          id: 'm2',
-          name: 'memory_usage',
-          type: 'measurement',
-          database: 'test_db',
-          count: 50,
-          tagKeys: [
-            { key: 'host', values: ['server1', 'server2'] }
-          ],
-          fieldKeys: [
-            { key: 'value', type: 'float' },
-            { key: 'unit', type: 'string' }
-          ]
-        }
-      ]
-    }
-  ]
-})
-
-// 数据库表单验证规则
-const databaseRules = {
-  name: [
-    { required: true, message: '请输入数据库名称', trigger: 'blur' },
-    { pattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/, message: '数据库名称格式不正确', trigger: 'blur' }
-  ]
+// 方法
+const getVersionTagType = (version: string) => {
+  switch (version) {
+    case InfluxDBVersion.V1: return 'info'
+    case InfluxDBVersion.V2: return 'warning'
+    case InfluxDBVersion.V3: return 'success'
+    default: return 'info'
+  }
 }
 
-// 方法
+const getExplorerTitle = () => {
+  if (!activeConnection.value) return '数据库浏览器'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return '数据库浏览器'
+    case InfluxDBVersion.V2: return '存储桶浏览器'
+    case InfluxDBVersion.V3: return '数据库浏览器'
+    default: return '数据库浏览器'
+  }
+}
+
+const getDatabaseListTitle = () => {
+  if (!activeConnection.value) return '数据库'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return '数据库'
+    case InfluxDBVersion.V2: return '存储桶'
+    case InfluxDBVersion.V3: return '数据库'
+    default: return '数据库'
+  }
+}
+
+const getDatabaseNameLabel = () => {
+  if (!activeConnection.value) return '数据库'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return '数据库'
+    case InfluxDBVersion.V2: return '存储桶'
+    case InfluxDBVersion.V3: return '数据库'
+    default: return '数据库'
+  }
+}
+
+const getMeasurementNameLabel = () => {
+  if (!activeConnection.value) return '测量值'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return '测量值'
+    case InfluxDBVersion.V2: return '测量值'
+    case InfluxDBVersion.V3: return '表'
+    default: return '测量值'
+  }
+}
+
+const getMeasurementCountLabel = () => {
+  if (!activeConnection.value) return '测量值数量'
+  
+  switch (activeConnection.value.version) {
+    case InfluxDBVersion.V1: return '测量值数量'
+    case InfluxDBVersion.V2: return '测量值数量'
+    case InfluxDBVersion.V3: return '表数量'
+    default: return '测量值数量'
+  }
+}
+
+const getDetailTitle = () => {
+  if (!selectedItem.value) return ''
+  
+  if (selectedItem.value.type === 'database') {
+    return `${getDatabaseNameLabel()}信息`
+  } else {
+    return `${getMeasurementNameLabel()}信息`
+  }
+}
+
+const canCreateDatabase = () => {
+  if (!activeConnection.value) return false
+  
+  // InfluxDB 2.x 通常不允许通过 API 创建 bucket
+  return activeConnection.value.version !== InfluxDBVersion.V2
+}
+
+const canDeleteDatabase = () => {
+  if (!activeConnection.value) return false
+  
+  // InfluxDB 2.x 通常不允许通过 API 删除 bucket
+  return activeConnection.value.version !== InfluxDBVersion.V2
+}
+
+const canDeleteMeasurement = () => {
+  if (!activeConnection.value) return false
+  
+  // 简化实现，实际应该根据权限判断
+  return true
+}
+
 const refreshData = async () => {
+  if (!activeConnection.value) return
+  
   isLoading.value = true
   try {
-    // TODO: 刷新数据库列表
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    ElMessage.success('数据已刷新')
+    await loadDatabases()
+    ElMessage.success('数据刷新成功')
   } catch (error) {
-    ElMessage.error('刷新失败')
+    ElMessage.error('数据刷新失败')
   } finally {
     isLoading.value = false
   }
 }
 
-const handleDatabaseClick = (data: any) => {
-  selectedItem.value = data
-}
-
-const showCreateDatabaseDialog = () => {
-  showCreateDatabase.value = true
-  newDatabaseForm.value.name = ''
-}
-
-const createDatabase = async () => {
+const loadDatabases = async () => {
+  if (!activeConnection.value) return
+  
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) {
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
+  
   try {
-    await databaseFormRef.value?.validate()
-    // TODO: 调用 Tauri 命令创建数据库
-    ElMessage.success('数据库创建成功')
-    showCreateDatabase.value = false
-    refreshData()
+    const response = await invoke('get_databases', { 
+      connectionId: backendConnectionId 
+    }) as any
+    
+    if (response.success && response.data) {
+      // 构建树形数据
+      databaseTreeData.value = response.data.map((db: string) => ({
+        id: db,
+        name: db,
+        type: 'database',
+        children: []
+      }))
+    }
   } catch (error) {
-    console.error('创建数据库失败:', error)
+    console.error('获取数据库列表失败:', error)
+    ElMessage.error('获取数据库列表失败')
   }
 }
 
-const openQueryEditor = () => {
-  if (selectedItem.value) {
-    // 跳转到查询编辑器，并传递选中的数据库/测量值信息
-    router.push({
-      path: '/query',
-      query: {
-        database: selectedItem.value.database || selectedItem.value.name,
-        measurement: selectedItem.value.type === 'measurement' ? selectedItem.value.name : undefined
+const handleDatabaseClick = async (data: any) => {
+  selectedItem.value = data
+  
+  if (data.type === 'database') {
+    // 加载测量值
+    await loadMeasurements(data.name)
+  }
+}
+
+const loadMeasurements = async (database: string) => {
+  if (!activeConnection.value) return
+  
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) return
+  
+  try {
+    const response = await invoke('get_measurements', { 
+      connectionId: backendConnectionId,
+      database 
+    }) as any
+    
+    if (response.success && response.data) {
+      // 更新树形数据
+      const databaseNode = databaseTreeData.value.find(db => db.name === database)
+      if (databaseNode) {
+        databaseNode.children = response.data.map((measurement: string) => ({
+          id: `${database}.${measurement}`,
+          name: measurement,
+          type: 'measurement',
+          database,
+          count: 0 // 简化实现
+        }))
       }
-    })
+    }
+  } catch (error) {
+    console.error('获取测量值列表失败:', error)
+  }
+}
+
+const showCreateDatabaseDialog = () => {
+  newDatabaseForm.value.name = ''
+  showCreateDatabase.value = true
+}
+
+const createDatabase = async () => {
+  if (!activeConnection.value || !newDatabaseForm.value.name) return
+  
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) {
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
+  
+  try {
+    const response = await invoke('create_database', { 
+      connectionId: backendConnectionId,
+      database: newDatabaseForm.value.name
+    }) as any
+    
+    if (response.success) {
+      ElMessage.success(`${getDatabaseNameLabel()}创建成功`)
+      showCreateDatabase.value = false
+      await loadDatabases()
+    } else {
+      ElMessage.error(response.error || `${getDatabaseNameLabel()}创建失败`)
+    }
+  } catch (error) {
+    ElMessage.error(`${getDatabaseNameLabel()}创建失败`)
   }
 }
 
@@ -332,7 +473,7 @@ const showDeleteDatabaseDialog = async () => {
   
   try {
     await ElMessageBox.confirm(
-      `确定要删除数据库 "${selectedItem.value.name}" 吗？此操作不可恢复！`,
+      `确定要删除${getDatabaseNameLabel()} "${selectedItem.value.name}" 吗？`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -341,11 +482,38 @@ const showDeleteDatabaseDialog = async () => {
       }
     )
     
-    // TODO: 调用 Tauri 命令删除数据库
-    ElMessage.success('数据库删除成功')
-    refreshData()
+    await deleteDatabase(selectedItem.value.name)
   } catch {
     // 用户取消删除
+  }
+}
+
+const deleteDatabase = async (database: string) => {
+  if (!activeConnection.value) return
+  
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) {
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
+  
+  try {
+    const response = await invoke('drop_database', { 
+      connectionId: backendConnectionId,
+      database
+    }) as any
+    
+    if (response.success) {
+      ElMessage.success(`${getDatabaseNameLabel()}删除成功`)
+      selectedItem.value = null
+      await loadDatabases()
+    } else {
+      ElMessage.error(response.error || `${getDatabaseNameLabel()}删除失败`)
+    }
+  } catch (error) {
+    ElMessage.error(`${getDatabaseNameLabel()}删除失败`)
   }
 }
 
@@ -354,7 +522,7 @@ const showDeleteMeasurementDialog = async () => {
   
   try {
     await ElMessageBox.confirm(
-      `确定要删除测量值 "${selectedItem.value.name}" 吗？此操作不可恢复！`,
+      `确定要删除${getMeasurementNameLabel()} "${selectedItem.value.name}" 吗？`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -363,23 +531,66 @@ const showDeleteMeasurementDialog = async () => {
       }
     )
     
-    // TODO: 调用 Tauri 命令删除测量值
-    ElMessage.success('测量值删除成功')
-    refreshData()
+    await deleteMeasurement(selectedItem.value.database, selectedItem.value.name)
   } catch {
     // 用户取消删除
   }
 }
 
+const deleteMeasurement = async (database: string, measurement: string) => {
+  if (!activeConnection.value) return
+  
+  const connectionStatus = connectionStore.connectionStatus[activeConnection.value.id]
+  const backendConnectionId = connectionStatus?.backendConnectionId
+  
+  if (!backendConnectionId) {
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
+  
+  try {
+    // 简化实现：使用 DROP MEASUREMENT 查询
+    const query = `DROP MEASUREMENT "${measurement}"`
+    const response = await invoke('execute_query', { 
+      connectionId: backendConnectionId,
+      query
+    }) as any
+    
+    if (response.success) {
+      ElMessage.success(`${getMeasurementNameLabel()}删除成功`)
+      selectedItem.value = null
+      await loadMeasurements(database)
+    } else {
+      ElMessage.error(response.error || `${getMeasurementNameLabel()}删除失败`)
+    }
+  } catch (error) {
+    ElMessage.error(`${getMeasurementNameLabel()}删除失败`)
+  }
+}
+
+const openQueryEditor = () => {
+  if (!selectedItem.value) return
+  
+  const query: any = {
+    database: selectedItem.value.type === 'database' 
+      ? selectedItem.value.name 
+      : selectedItem.value.database
+  }
+  
+  if (selectedItem.value.type === 'measurement') {
+    query.measurement = selectedItem.value.name
+  }
+  
+  router.push({
+    path: '/query',
+    query
+  })
+}
+
 // 生命周期
 onMounted(() => {
-  if (!activeConnection.value) {
-    ElMessage.warning('请先连接到数据库')
-  } else {
-    // 延迟加载数据，确保组件完全挂载
-    setTimeout(() => {
-      refreshData()
-    }, 100)
+  if (activeConnection.value) {
+    loadDatabases()
   }
 })
 </script>
@@ -402,12 +613,23 @@ onMounted(() => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .header-left h2 {
   margin: 0;
   color: #303133;
+}
+
+.connection-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .no-connection {
@@ -418,19 +640,19 @@ onMounted(() => {
 }
 
 .explorer-content {
-  height: calc(100vh - 80px);
+  padding: 20px;
 }
 
 .custom-tree-node {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   width: 100%;
 }
 
 .measurement-count {
   color: #909399;
-  font-size: 0.9rem;
+  font-size: 12px;
 }
 
 .dialog-footer {

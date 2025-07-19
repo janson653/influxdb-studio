@@ -1,37 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-
-// 连接配置接口
-export interface ConnectionConfig {
-  id: string
-  name: string
-  host: string
-  port: number
-  database?: string
-  username?: string
-  password?: string
-  useSsl: boolean
-  timeout: number
-  // InfluxDB 2.x 支持
-  token?: string
-  org?: string
-  bucket?: string
-}
-
-// 连接状态接口
-export interface ConnectionStatus {
-  id: string
-  status: 'connected' | 'disconnected' | 'connecting' | 'error'
-  lastPing?: number
-  error?: string
-  backendConnectionId?: string // 后端连接ID
-}
+import type { 
+  ConnectionProfile, 
+  ConnectionStatus
+} from '../types/influxdb'
+import { InfluxDBVersion } from '../types/influxdb'
 
 // 连接状态管理存储
 export const useConnectionStore = defineStore('connection', () => {
   // 状态
-  const connections = ref<ConnectionConfig[]>([])
+  const connections = ref<ConnectionProfile[]>([])
   const activeConnection = ref<string | null>(null)
   const connectionStatus = ref<Record<string, ConnectionStatus>>({})
 
@@ -48,18 +27,25 @@ export const useConnectionStore = defineStore('connection', () => {
   })
 
   // 动作
-  const addConnection = (config: ConnectionConfig) => {
+  const addConnection = (profile: ConnectionProfile) => {
     // 检查是否已存在相同 ID 的连接
-    const existingIndex = connections.value.findIndex(c => c.id === config.id)
+    const existingIndex = connections.value.findIndex(c => c.id === profile.id)
     if (existingIndex >= 0) {
-      connections.value[existingIndex] = config
+      connections.value[existingIndex] = {
+        ...profile,
+        updatedAt: Date.now()
+      }
     } else {
-      connections.value.push(config)
+      connections.value.push({
+        ...profile,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      })
     }
     
     // 初始化连接状态
-    connectionStatus.value[config.id] = {
-      id: config.id,
+    connectionStatus.value[profile.id] = {
+      id: profile.id,
       status: 'disconnected'
     }
     
@@ -80,10 +66,14 @@ export const useConnectionStore = defineStore('connection', () => {
     saveConnections()
   }
 
-  const updateConnection = (id: string, config: Partial<ConnectionConfig>) => {
+  const updateConnection = (id: string, updates: Partial<ConnectionProfile>) => {
     const index = connections.value.findIndex(c => c.id === id)
     if (index >= 0) {
-      connections.value[index] = { ...connections.value[index], ...config }
+      connections.value[index] = { 
+        ...connections.value[index], 
+        ...updates,
+        updatedAt: Date.now()
+      }
       saveConnections()
     }
   }
@@ -104,7 +94,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       // 调用 Tauri 命令测试连接
-      const apiResponse = await invoke('test_connection', { config: connection }) as any
+      const apiResponse = await invoke('test_connection', { profile: connection }) as any
       
       // 检查 API 响应
       if (!apiResponse.success) {
@@ -145,7 +135,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       // 调用 Tauri 命令建立连接
-      const apiResponse = await invoke('connect_to_database', { config: connection }) as any
+      const apiResponse = await invoke('connect_to_database', { profile: connection }) as any
       
       // 检查 API 响应
       if (!apiResponse.success) {
@@ -199,7 +189,53 @@ export const useConnectionStore = defineStore('connection', () => {
     try {
       const saved = localStorage.getItem('influxdb-connections')
       if (saved) {
-        connections.value = JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        // 兼容旧版本数据格式
+        if (Array.isArray(parsed)) {
+          connections.value = parsed.map(conn => {
+            // 如果是旧格式，转换为新格式
+            if (!conn.version) {
+              // 判断版本并转换
+              if (conn.token && conn.org) {
+                return {
+                  id: conn.id,
+                  name: conn.name,
+                  version: InfluxDBVersion.V2,
+                  config: {
+                    host: conn.host,
+                    port: conn.port,
+                    token: conn.token,
+                    org: conn.org,
+                    bucket: conn.bucket,
+                    useSsl: conn.useSsl || false,
+                    timeout: conn.timeout || 5000
+                  },
+                  createdAt: conn.createdAt || Date.now(),
+                  updatedAt: conn.updatedAt || Date.now()
+                }
+              } else if (conn.database && (conn.username || conn.password)) {
+                return {
+                  id: conn.id,
+                  name: conn.name,
+                  version: InfluxDBVersion.V1,
+                  config: {
+                    host: conn.host,
+                    port: conn.port,
+                    database: conn.database,
+                    username: conn.username,
+                    password: conn.password,
+                    useSsl: conn.useSsl || false,
+                    timeout: conn.timeout || 5000
+                  },
+                  createdAt: conn.createdAt || Date.now(),
+                  updatedAt: conn.updatedAt || Date.now()
+                }
+              }
+            }
+            return conn
+          })
+        }
+        
         // 初始化所有连接的状态
         connections.value.forEach(conn => {
           connectionStatus.value[conn.id] = {
