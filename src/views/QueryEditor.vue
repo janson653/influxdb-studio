@@ -16,6 +16,7 @@
           执行查询
         </el-button>
         <el-button @click="showQueryHistory" size="small">历史</el-button>
+        <el-button @click="showQueryExamples" size="small">示例</el-button>
       </div>
       <div class="editor-container">
         <MonacoEditor
@@ -88,6 +89,7 @@ import { useConnectionStore } from '../stores/connectionStore';
 import { useQueryStore } from '../stores/queryStore';
 import type { QueryResult } from '../stores/queryStore';
 import { InfluxDBVersion } from '../types/influxdb';
+import { QueryValidator } from '../utils/queryValidator';
 import MonacoEditor from '../components/Common/MonacoEditor.vue';
 
 const props = defineProps<{
@@ -95,6 +97,7 @@ const props = defineProps<{
   initialMeasurement?: string;
 }>();
 
+const route = useRoute();
 const connectionStore = useConnectionStore();
 const queryStore = useQueryStore();
 
@@ -151,12 +154,27 @@ const executeQuery = async () => {
     return;
   }
 
+  // 验证查询语法
+  const validation = QueryValidator.validateQuery(currentQuery.value, activeConnection.value.version);
+  if (!validation.isValid) {
+    ElMessage.error(`查询语法错误: ${validation.error}`);
+    if (validation.suggestion) {
+      ElMessage.info(`建议: ${validation.suggestion}`);
+    }
+    if (validation.correctedQuery) {
+      ElMessage.info(`修正后的查询: ${validation.correctedQuery}`);
+    }
+    return;
+  }
+
   isExecuting.value = true;
   try {
     const result = await queryStore.executeQuery(currentQuery.value, selectedDatabase.value, backendConnectionId);
-    queryResults.value = result;
-    if (!result.error) {
-      ElMessage.success('查询执行成功');
+    if (result) {
+      queryResults.value = result;
+      if (!result.error) {
+        ElMessage.success('查询执行成功');
+      }
     }
   } catch (error) {
     ElMessage.error(`查询执行失败: ${error}`);
@@ -171,6 +189,18 @@ const loadQuery = (query: any) => {
   currentQuery.value = query.query;
   selectedDatabase.value = query.database;
   showHistory.value = false;
+};
+
+const showQueryExamples = () => {
+  if (!activeConnection.value) {
+    ElMessage.warning('请先选择一个连接');
+    return;
+  }
+  
+  const examples = QueryValidator.getQueryExamples(activeConnection.value.version);
+  const exampleText = examples.join('\n\n');
+  
+  ElMessage.info(`查询示例:\n${exampleText}`);
 };
 
 const getTotalResults = () => {
@@ -199,6 +229,12 @@ const loadDatabases = async () => {
 watch(() => [props.initialDb, props.initialMeasurement], ([db, measurement]) => {
   if (db) selectedDatabase.value = db;
   if (measurement) currentQuery.value = `SELECT * FROM "${measurement}" LIMIT 10`;
+}, { immediate: true });
+
+watch(() => route.query.query, (newQuery) => {
+  if (newQuery && typeof newQuery === 'string') {
+    currentQuery.value = newQuery;
+  }
 }, { immediate: true });
 
 watch(activeConnection, (conn) => {

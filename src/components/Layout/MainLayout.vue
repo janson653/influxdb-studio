@@ -67,7 +67,7 @@
               <el-icon><Refresh /></el-icon>
             </el-button>
           </div>
-          <div class="explorer-tree">
+          <div class="explorer-tree" @contextmenu.prevent="openContextMenu($event, null)">
             <div v-if="!activeConnection || !isConnected" class="empty-state">
               <el-empty description="未连接" :image-size="60" />
             </div>
@@ -78,7 +78,7 @@
               @node-click="handleDatabaseClick"
             >
               <template #default="{ node, data }">
-                <span class="tree-node">
+                <span class="tree-node" @contextmenu.prevent.stop="openContextMenu($event, data)">
                   <el-icon v-if="data.type === 'database'"><Folder /></el-icon>
                   <el-icon v-else><Document /></el-icon>
                   <span>{{ node.label }}</span>
@@ -102,7 +102,7 @@
         <el-tag :type="getConnectionStatusType()" size="small" effect="dark">
           {{ getConnectionStatusText() }}
         </el-tag>
-        <span>{{ activeConnection.host }}:{{ activeConnection.port }}</span>
+        <span>{{ activeConnection.config.host }}:{{ activeConnection.config.port }}</span>
       </div>
     </div>
 
@@ -111,11 +111,25 @@
       :connection="editingConnection"
       @save="handleSaveConnection"
     />
+
+    <!-- 右键上下文菜单 -->
+    <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.top, left: contextMenu.left }">
+      <div v-if="contextMenu.node?.type === 'database'">
+        <div class="context-menu-item" @click="handleNewTable">新建表</div>
+        <div class="context-menu-item" @click="handleDeleteDatabase">删除库</div>
+      </div>
+      <div v-else-if="contextMenu.node?.type === 'measurement'">
+        <div class="context-menu-item" @click="handleDeleteTable">删除表</div>
+      </div>
+      <div v-else>
+        <div class="context-menu-item" @click="handleNewDatabase">新建库</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
@@ -138,6 +152,13 @@ const editingConnection = ref<ConnectionProfile | null>(null);
 const selectedDb = ref('');
 const selectedMeasurement = ref('');
 const editorKey = ref(0);
+
+const contextMenu = reactive({
+  visible: false,
+  top: '0px',
+  left: '0px',
+  node: null as any,
+});
 
 const connections = computed(() => connectionStore.connections);
 const activeConnection = computed(() => connectionStore.activeConnectionConfig);
@@ -252,7 +273,92 @@ watch(isConnected, (connected) => {
 
 onMounted(() => {
   if (isConnected.value) loadDatabases();
+  document.addEventListener('click', closeContextMenu);
 });
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeContextMenu);
+});
+
+// --- 右键菜单方法 ---
+const openContextMenu = (event: MouseEvent, node: any) => {
+  contextMenu.visible = true;
+  contextMenu.top = `${event.clientY}px`;
+  contextMenu.left = `${event.clientX}px`;
+  contextMenu.node = node;
+};
+
+const closeContextMenu = () => {
+  contextMenu.visible = false;
+};
+
+const handleNewDatabase = async () => {
+  closeContextMenu();
+  try {
+    const { value } = await ElMessageBox.prompt('请输入新数据库的名称:', '新建库', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+    });
+    const backendId = connectionStatus.value?.backendConnectionId;
+    if (!backendId) return;
+    const response = await invoke('create_database', { connectionId: backendId, database: value }) as any;
+    if (response.success) {
+      ElMessage.success('数据库创建成功');
+      await loadDatabases();
+    } else {
+      ElMessage.error(response.error || '创建失败');
+    }
+  } catch { /* 用户取消 */ }
+};
+
+const handleDeleteDatabase = async () => {
+  const dbName = contextMenu.node.name;
+  closeContextMenu();
+  try {
+    await ElMessageBox.confirm(`确定要删除数据库 "${dbName}" 吗？此操作不可逆！`, '确认删除', { type: 'warning' });
+    const backendId = connectionStatus.value?.backendConnectionId;
+    if (!backendId) return;
+    const response = await invoke('drop_database', { connectionId: backendId, database: dbName }) as any;
+    if (response.success) {
+      ElMessage.success('数据库删除成功');
+      await loadDatabases();
+    } else {
+      ElMessage.error(response.error || '删除失败');
+    }
+  } catch { /* 用户取消 */ }
+};
+
+const handleNewTable = async () => {
+  const dbName = contextMenu.node.name;
+  closeContextMenu();
+  try {
+    const { value } = await ElMessageBox.prompt('请输入新表的名称:', '新建表', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+    });
+    const newQuery = `INSERT ${value},tag_key=tag_value field_key="field_value"`;
+    router.push({ path: '/', query: { db: dbName, measurement: value, query: newQuery } });
+    ElMessage.info('请在查询编辑器中执行 INSERT 语句以创建表和写入数据。');
+  } catch { /* 用户取消 */ }
+};
+
+const handleDeleteTable = async () => {
+  const { database, name } = contextMenu.node;
+  closeContextMenu();
+  try {
+    await ElMessageBox.confirm(`确定要删除表 "${name}" 吗？`, '确认删除', { type: 'warning' });
+    const backendId = connectionStatus.value?.backendConnectionId;
+    if (!backendId) return;
+    const query = `DROP MEASUREMENT "${name}"`;
+    const response = await invoke('execute_query', { connectionId: backendId, database, query }) as any;
+    if (response.success) {
+      ElMessage.success('表删除成功');
+      await loadMeasurements(database);
+    } else {
+      ElMessage.error(response.error || '删除失败');
+    }
+  } catch { /* 用户取消 */ }
+};
 </script>
 
 <style scoped>
@@ -277,4 +383,26 @@ onMounted(() => {
 .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .status-bar { height: 25px; background: #3c3f41; border-top: 1px solid #555; display: flex; align-items: center; padding: 0 10px; font-size: 12px; color: #808080; }
 .status-item { margin-right: 20px; display: flex; align-items: center; gap: 8px; }
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: #4c5052;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+  padding: 5px 0;
+}
+
+.context-menu-item {
+  padding: 8px 15px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #a9b7c6;
+}
+
+.context-menu-item:hover {
+  background-color: #6a8759;
+  color: white;
+}
 </style>

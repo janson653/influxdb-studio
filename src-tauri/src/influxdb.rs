@@ -100,6 +100,13 @@ impl InfluxDBV1Service {
 
     async fn query(&self, query: &str) -> Result<QueryResult, AppError> {
         tracing::info!("[BE] InfluxDBV1Service::query called with query: '{}'", query);
+        
+        // 检查是否是 INSERT 语句
+        let upper_query = query.to_uppercase();
+        if upper_query.starts_with("INSERT") {
+            return self.write(query).await;
+        }
+        
         let start = std::time::Instant::now();
         
         let url = format!("{}/query", self.base_url);
@@ -153,6 +160,116 @@ impl InfluxDBV1Service {
             tracing::error!("[BE] Query failed: {}", error_message);
             Err(AppError::Query(error_message))
         }
+    }
+
+    /// 处理 INSERT 语句，使用 /write 端点
+    async fn write(&self, insert_query: &str) -> Result<QueryResult, AppError> {
+        tracing::info!("[BE] InfluxDBV1Service::write called with query: '{}'", insert_query);
+        let start = std::time::Instant::now();
+        
+        // 解析 INSERT 语句，提取数据部分
+        let data_line = self.parse_insert_query(insert_query)?;
+        
+        let url = format!("{}/write", self.base_url);
+        tracing::info!("[BE] Making HTTP write request to: {}", url);
+        
+        let mut request_builder = self.client
+            .post(&url)
+            .query(&[("db", &self.config.database)])
+            .body(data_line);
+        
+        // 添加认证信息
+        if let (Some(username), Some(password)) = (&self.config.username, &self.config.password) {
+            request_builder = request_builder.basic_auth(username, Some(password));
+            tracing::info!("[BE] Added basic auth for user: {}", username);
+        }
+        
+        let response = request_builder
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::error!("[BE] HTTP write request failed: {}", e);
+                AppError::Network(e.to_string())
+            })?;
+
+        let status = response.status();
+        tracing::info!("[BE] HTTP write response status: {}", status);
+        
+        let response_text = response.text().await.map_err(|e| {
+            tracing::error!("[BE] Failed to read write response text: {}", e);
+            AppError::Network(e.to_string())
+        })?;
+        
+        tracing::info!("[BE] Write response text: {}", response_text);
+        
+        if status.is_success() {
+            let execution_time = start.elapsed().as_millis() as u64;
+            
+            tracing::info!("[BE] Write succeeded, took {}ms", execution_time);
+            
+            // 返回空的查询结果，表示写入成功
+            Ok(QueryResult {
+                series: vec![],
+                execution_time,
+            })
+        } else {
+            let error_message = format!("HTTP {status}: {response_text}");
+            tracing::error!("[BE] Write failed: {}", error_message);
+            Err(AppError::Query(error_message))
+        }
+    }
+
+    /// 解析 INSERT 语句，提取数据行
+    fn parse_insert_query(&self, insert_query: &str) -> Result<String, AppError> {
+        // 移除 INSERT INTO "database" 部分，只保留数据行
+        let upper_query = insert_query.to_uppercase();
+        
+        if !upper_query.starts_with("INSERT INTO") {
+            return Err(AppError::Validation("INSERT 语句必须以 'INSERT INTO' 开头".to_string()));
+        }
+        
+        // 查找数据行的开始位置
+        // INSERT INTO "database" measurement,tag_key=tag_value field_key="field_value"
+        // 需要提取: measurement,tag_key=tag_value field_key="field_value"
+        
+        let parts = insert_query.splitn(3, ' ').collect::<Vec<&str>>();
+        if parts.len() < 3 {
+            return Err(AppError::Validation("INSERT 语句格式错误".to_string()));
+        }
+        
+        // 处理数据库名部分
+        let db_part = parts[2];
+        let data_part = if db_part.starts_with('"') {
+            // 数据库名被引号包围
+            if let Some(end_quote) = db_part[1..].find('"') {
+                let remaining = &db_part[end_quote + 1..].trim();
+                if remaining.is_empty() {
+                    // 数据库名后面还有更多内容
+                    if parts.len() > 3 {
+                        parts[3..].join(" ")
+                    } else {
+                        return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
+                    }
+                } else {
+                    remaining.to_string()
+                }
+            } else {
+                return Err(AppError::Validation("数据库名引号不匹配".to_string()));
+            }
+        } else {
+            // 数据库名没有引号，取剩余部分
+            if parts.len() > 3 {
+                parts[3..].join(" ")
+            } else {
+                return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
+            }
+        };
+        
+        if data_part.is_empty() {
+            return Err(AppError::Validation("INSERT 语句缺少数据行".to_string()));
+        }
+        
+        Ok(data_part)
     }
 
     async fn get_databases(&self) -> Result<Vec<String>, AppError> {
@@ -537,6 +654,59 @@ pub async fn create_influxdb_service(profile: &ConnectionProfile) -> Result<Infl
                 .map_err(|e| AppError::Config(format!("Invalid v3 config: {}", e)))?;
             let service = InfluxDBV2Service::new(config).await?;
             Ok(InfluxDBService::V2(service))
+        }
+    }
+} 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_insert_query() {
+        let service = InfluxDBV1Service {
+            client: reqwest::Client::new(),
+            config: InfluxDBV1Config {
+                host: "localhost".to_string(),
+                port: 8086,
+                database: "test".to_string(),
+                username: None,
+                password: None,
+                use_ssl: false,
+                timeout: 5000,
+            },
+            base_url: "http://localhost:8086".to_string(),
+        };
+
+        // 测试用例
+        let test_cases = vec![
+            (
+                r#"INSERT INTO "testdb" cpu,host=server01 value=0.64"#,
+                Ok::<String, AppError>("cpu,host=server01 value=0.64".to_string()),
+            ),
+            (
+                r#"INSERT INTO testdb memory,host=server01 value=0.32"#,
+                Ok::<String, AppError>("memory,host=server01 value=0.32".to_string()),
+            ),
+            (
+                r#"INSERT INTO "my-db" temperature,location=room1 value=25.5"#,
+                Ok::<String, AppError>("temperature,location=room1 value=25.5".to_string()),
+            ),
+        ];
+
+        for (input, expected) in test_cases {
+            let result = service.parse_insert_query(input);
+            match (result.clone(), expected.clone()) {
+                (Ok(actual), Ok(expected)) => {
+                    assert_eq!(actual, expected, "Failed for input: {}", input);
+                }
+                (Err(actual), Err(expected)) => {
+                    assert_eq!(actual.to_string(), expected.to_string(), "Failed for input: {}", input);
+                }
+                _ => {
+                    panic!("Mismatch for input: {}, got {:?}, expected {:?}", input, result, expected);
+                }
+            }
         }
     }
 } 

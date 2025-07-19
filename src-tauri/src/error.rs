@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// 应用程序错误类型
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AppError {
     /// 网络连接错误
     Network(String),
