@@ -138,13 +138,16 @@ const getLogMessageClass = (type: string) => {
 }
 
 const formatTimestamp = (timestamp: Date) => {
-  return timestamp.toLocaleTimeString('zh-CN', {
+  const timeString = timestamp.toLocaleTimeString('zh-CN', {
     hour12: false,
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-    fractionalSecondDigits: 3
+    second: '2-digit'
   })
+  
+  // 手动添加毫秒部分
+  const milliseconds = timestamp.getMilliseconds().toString().padStart(3, '0')
+  return `${timeString}.${milliseconds}`
 }
 
 const clearOutput = () => {
