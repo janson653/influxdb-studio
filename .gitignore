@@ -1,8 +1,30 @@
+# 构建产物
 dist
 node_modules
 src-tauri/target
+
+# Flatpak 构建产物
 flatpak/influxdb-studio
 flatpak/.flatpak-builder
 flatpak/build
 flatpak/repo
-flatpak/influxdb-studio.flatpak
+flatpak/*.flatpak
+
+# 开发环境缓存
+.vite
+.cache
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 文件
+.vscode
+.idea
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.temp

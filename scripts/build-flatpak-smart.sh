@@ -29,18 +29,15 @@ print_debug() {
 check_dependencies() {
     print_info "检查构建依赖..."
     
-    if ! command -v flatpak &> /dev/null; then
-        print_error "Flatpak 未安装，请先安装 Flatpak"
-        exit 1
-    fi
+    local missing_deps=()
     
-    if ! command -v cargo &> /dev/null; then
-        print_error "Rust/Cargo 未安装，请先安装 Rust"
-        exit 1
-    fi
+    command -v flatpak &> /dev/null || missing_deps+=("flatpak")
+    command -v cargo &> /dev/null || missing_deps+=("cargo")
+    command -v pnpm &> /dev/null || missing_deps+=("pnpm")
     
-    if ! command -v pnpm &> /dev/null; then
-        print_error "pnpm 未安装，请先安装 pnpm"
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        print_error "缺少依赖: ${missing_deps[*]}"
+        print_info "请安装缺少的依赖后重试"
         exit 1
     fi
     
@@ -81,34 +78,15 @@ build_flatpak_smart() {
         flatpak update
     fi
     
-    # 检查 Flatpak 运行时
-    if ! flatpak list | grep -q "org.gnome.Platform"; then
-        print_info "安装 GNOME Platform 运行时..."
-        # 尝试安装最新稳定版本
-        flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
-        flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
+    # 安装 GNOME Platform 运行时 (使用兼容性最好的44版本)
+    if ! flatpak list | grep -q "org.gnome.Platform//44"; then
+        print_info "安装 GNOME Platform 44 运行时..."
         flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y
     fi
     
-    # 检查 appstream-compose 是否可用
-    if command -v appstream-compose &> /dev/null; then
-        print_info "✅ appstream-compose 可用，使用标准构建流程"
-        flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
-    else
-        print_warning "❌ appstream-compose 不可用，使用备用配置"
-        
-        # 创建临时配置文件
-        cp com.influxdb.studio.yml com.influxdb.studio.backup.yml
-        
-        # 修改配置文件避免使用 appstream-compose
-        sed -i 's|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/com.influxdb.studio.appdata.xml|' com.influxdb.studio.yml
-        
-        # 构建
-        flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
-        
-        # 恢复原配置
-        mv com.influxdb.studio.backup.yml com.influxdb.studio.yml
-    fi
+    # 构建 Flatpak 包
+    print_info "构建 Flatpak 包..."
+    flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
     
     # 创建 Flatpak 包文件
     flatpak build-bundle repo influxdb-studio.flatpak com.influxdb.studio
@@ -128,15 +106,15 @@ cleanup() {
 
 # 主函数
 main() {
-    print_info "开始智能构建 InfluxDB Studio Flatpak 包..."
+    print_info "开始构建 InfluxDB Studio Flatpak 包..."
     
     check_dependencies
     build_tauri_app
     build_flatpak_smart
     
-    print_info "构建完成！"
-    print_info "Flatpak 包位置: flatpak/influxdb-studio.flatpak"
-    print_info "安装命令: flatpak install influxdb-studio.flatpak"
+    print_info "✅ 构建完成！"
+    print_info "📦 包文件: flatpak/influxdb-studio.flatpak"
+    print_info "🔧 安装: flatpak install influxdb-studio.flatpak"
 }
 
 # 处理命令行参数
@@ -148,7 +126,7 @@ case "${1:-}" in
         echo "用法: $0 [clean|help]"
         echo "  clean: 清理构建文件"
         echo "  help:  显示帮助信息"
-        echo "  无参数: 智能构建 Flatpak 包"
+        echo "  无参数: 构建 Flatpak 包"
         ;;
     "")
         main

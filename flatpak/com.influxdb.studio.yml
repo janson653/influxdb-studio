@@ -1,6 +1,6 @@
 app-id: com.influxdb.studio
 runtime: org.gnome.Platform
-runtime-version: '47'
+runtime-version: '44'
 sdk: org.gnome.Sdk
 command: influxdb-studio
 finish-args:
@@ -25,7 +25,7 @@ modules:
       - install -D influxdb-studio /app/bin/influxdb-studio
       - install -D com.influxdb.studio.desktop /app/share/applications/
       # 直接复制 metainfo 文件，避免使用 appstream-compose
-      - install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/com.influxdb.studio.appdata.xml
+      - install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/com.influxdb.studio.appdata.xmlcom.influxdb.studio.appdata.xml
       - cp 128x128.png /app/share/icons/hicolor/128x128/apps/com.influxdb.studio.png
       - cp 64x64.png /app/share/icons/hicolor/64x64/apps/com.influxdb.studio.png
       - cp 32x32.png /app/share/icons/hicolor/32x32/apps/com.influxdb.studio.png

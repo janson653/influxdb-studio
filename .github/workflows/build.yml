@@ -24,7 +24,7 @@ jobs:
           - platform: 'macos-latest'
             args: '--target universal-apple-darwin'
             target: 'universal-apple-darwin'
-          - platform: 'ubuntu-20.04'
+          - platform: 'ubuntu-22.04'
             args: ''
             target: 'x86_64-unknown-linux-gnu'
           - platform: 'windows-latest'
@@ -58,7 +58,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-20.04'
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -86,108 +86,4 @@ jobs:
           releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease: false
           args: ${{ matrix.args }}
-          includeUpdaterJson: false
-
-      # 智能构建 Flatpak 包 (仅 Linux)
-      - name: Smart Flatpak Build
-        if: matrix.platform == 'ubuntu-20.04' && startsWith(github.ref, 'refs/tags/')
-        run: |
-          echo "🚀 开始智能构建 Flatpak 包..."
-          
-          # 安装 Flatpak 构建工具和 AppStream
-          sudo apt-get update
-          sudo apt-get install -y flatpak-builder appstream
-          
-          # 检查 flatpak-builder 版本
-          echo "📋 Flatpak 构建环境信息："
-          flatpak-builder --version
-          flatpak --version
-          
-          # 添加 Flathub 远程仓库
-          echo "📦 配置 Flathub 仓库..."
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak update
-          
-          # 智能安装 GNOME Platform 运行时
-          echo "🔧 安装 GNOME Platform 运行时..."
-          # 尝试安装最新稳定版本，按优先级降序
-          flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y || \
-          flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y || \
-          flatpak install flathub org.gnome.Platform//45 org.gnome.Sdk//45 -y || \
-          flatpak install flathub org.gnome.Platform//44 org.gnome.Sdk//44 -y || \
-          flatpak install flathub org.gnome.Platform//43 org.gnome.Sdk//43 -y
-          
-          # 检查 appstream-compose 是否可用
-          if command -v appstream-compose &> /dev/null; then
-            echo "✅ appstream-compose 可用，使用标准构建流程"
-            BUILD_METHOD="standard"
-          else
-            echo "⚠️  appstream-compose 不可用，使用备用配置"
-            BUILD_METHOD="fallback"
-          fi
-          
-          # 复制构建产物到 flatpak 目录
-          echo "📁 复制构建产物..."
-          cp src-tauri/target/x86_64-unknown-linux-gnu/release/influxdb-studio flatpak/
-          
-          # 构建 Flatpak 包
-          cd flatpak
-          
-          if [ "$BUILD_METHOD" = "fallback" ]; then
-            echo "🔧 使用备用构建方法..."
-            # 创建临时配置文件
-            cp com.influxdb.studio.yml com.influxdb.studio.backup.yml
-            
-            # 修改配置文件避免使用 appstream-compose
-            sed -i 's|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/com.influxdb.studio.appdata.xml|' com.influxdb.studio.yml
-            
-            # 构建
-            flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
-            
-            # 恢复原配置
-            mv com.influxdb.studio.backup.yml com.influxdb.studio.yml
-          else
-            echo "🔧 使用标准构建方法..."
-            flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
-          fi
-          
-          # 创建 Flatpak 包文件
-          echo "📦 创建 Flatpak 包文件..."
-          flatpak build-bundle repo influxdb-studio.flatpak com.influxdb.studio
-          
-          # 检查构建结果
-          if [ -f "influxdb-studio.flatpak" ]; then
-            echo "✅ Flatpak 包构建成功！"
-            ls -lh influxdb-studio.flatpak
-          else
-            echo "❌ Flatpak 包构建失败！"
-            exit 1
-          fi
-          
-          cd ..
-
-      # 上传 Flatpak 包到 Release
-      - name: Upload Flatpak package
-        if: matrix.platform == 'ubuntu-20.04' && startsWith(github.ref, 'refs/tags/')
-        run: |
-          echo "📤 上传 Flatpak 包到 Release..."
-          gh release upload ${{ github.ref_name }} flatpak/influxdb-studio.flatpak --repo ${{ github.repository }}
-          echo "✅ Flatpak 包上传成功！"
-
-      # 构建状态报告
-      - name: Build Status Report
-        if: always()
-        run: |
-          echo "📊 构建状态报告"
-          echo "平台: ${{ matrix.platform }}"
-          echo "目标: ${{ matrix.target }}"
-          echo "构建结果: ${{ job.status }}"
-          
-          if [ "${{ matrix.platform }}" = "ubuntu-20.04" ] && [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
-            if [ -f "flatpak/influxdb-studio.flatpak" ]; then
-              echo "✅ Flatpak 包: 构建成功"
-              echo "📦 包大小: $(ls -lh flatpak/influxdb-studio.flatpak | awk '{print $5}')"
-            else
-              echo "❌ Flatpak 包: 构建失败"
-            fi
-          fi 
+          includeUpdaterJson: false 
