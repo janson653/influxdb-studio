@@ -57,7 +57,8 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev \
             flatpak-builder \
-            appstream-compose
+            appstream-compose \
+            flatpak
 
       - name: Build Tauri application
         run: |
@@ -89,13 +90,28 @@ jobs:
           flatpak --version
           appstream-compose --version || echo "⚠️  appstream-compose 不可用"
           
-          # 添加 Flathub 远程仓库
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak update
+          # 确保 Flatpak 服务正在运行
+          echo "🔧 启动 Flatpak 服务..."
+          sudo systemctl start flatpak-system-helper || true
           
-          # 尝试安装指定版本的 GNOME Platform
+          # 检查 Flatpak 状态
+          echo "🔍 检查 Flatpak 状态..."
+          flatpak --version
+          flatpak remote-list || echo "⚠️  无法列出远程仓库"
+          
+          # 以 root 权限配置 Flatpak
+          echo "🔧 配置 Flatpak 远程仓库..."
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak update
+          
+          # 安装指定版本的 GNOME Platform
           echo "🔧 安装 GNOME Platform ${{ matrix.gnome-version }}..."
-          flatpak install flathub org.gnome.Platform//${{ matrix.gnome-version }} org.gnome.Sdk//${{ matrix.gnome-version }} -y
+          sudo flatpak install flathub org.gnome.Platform//${{ matrix.gnome-version }} org.gnome.Sdk//${{ matrix.gnome-version }} -y
+          
+          # 验证安装
+          echo "✅ 验证 Flatpak 环境..."
+          flatpak list --app | grep -E "(Platform|Sdk)" || echo "⚠️  未找到预期的运行时"
+          flatpak list --runtime | grep -E "(Platform|Sdk)" || echo "⚠️  未找到预期的运行时"
 
       - name: Build Flatpak package
         id: build
@@ -104,26 +120,33 @@ jobs:
           
           cd flatpak
           
-          # 检查 appstream-compose 可用性
-          if command -v appstream-compose &> /dev/null; then
-            echo "✅ 使用标准构建流程"
-            flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
+          # 更新配置文件中的运行时版本
+          echo "🔧 更新运行时版本到 ${{ matrix.gnome-version }}..."
+          sed -i "s/runtime-version: '47'/runtime-version: '${{ matrix.gnome-version }}'/" com.influxdb.studio.yml
+          
+          # 检查构建环境
+          echo "📋 构建环境检查："
+          echo "当前目录: $(pwd)"
+          echo "文件列表:"
+          ls -la
+          echo "Flatpak 运行时列表:"
+          flatpak list --runtime | grep -E "(Platform|Sdk)" || echo "⚠️  未找到运行时"
+          
+          # 构建 Flatpak 包
+          echo "🔨 开始构建..."
+          flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
+          
+          # 检查构建结果
+          if [ -d "build" ]; then
+            echo "✅ 构建目录创建成功"
           else
-            echo "⚠️  使用备用构建流程"
-            # 创建临时配置文件
-            cp com.influxdb.studio.yml com.influxdb.studio.backup.yml
-            
-            # 修改配置文件
-            sed -i 's|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/|- install -D com.influxdb.studio.metainfo.xml /app/share/metainfo/com.influxdb.studio.appdata.xml|' com.influxdb.studio.yml
-            
-            # 构建
-            flatpak-builder --force-clean --repo=repo build com.influxdb.studio.yml
-            
-            # 恢复配置
-            mv com.influxdb.studio.backup.yml com.influxdb.studio.yml
+            echo "❌ 构建目录创建失败"
+            echo "success=false" >> $GITHUB_OUTPUT
+            exit 1
           fi
           
           # 创建包文件
+          echo "📦 创建 Flatpak 包文件..."
           flatpak build-bundle repo influxdb-studio-gnome${{ matrix.gnome-version }}.flatpak com.influxdb.studio
           
           # 检查构建结果
