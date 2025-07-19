@@ -94,9 +94,9 @@ jobs:
         run: |
           echo "🚀 开始智能构建 Flatpak 包..."
           
-          # 安装 Flatpak 构建工具
+          # 安装 Flatpak 构建工具和 AppStream
           sudo apt-get update
-          sudo apt-get install -y flatpak-builder
+          sudo apt-get install -y flatpak-builder appstream
           
           # 检查 flatpak-builder 版本
           echo "📋 Flatpak 构建环境信息："
