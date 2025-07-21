@@ -250,21 +250,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch, reactive } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Refresh, 
-  Folder, 
-  Document, 
-  FolderOpened,
-  Connection,
-  Loading
+import {
+  Refresh, Folder, Document, Setting, Plus, Link, Edit, Delete, ArrowLeft,
+  Connection, Loading, FolderOpened
 } from '@element-plus/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'
 import { InfluxDBVersion } from '../types/influxdb'
 import { eventBus, Events } from '../utils/eventBus'
+import { debugHelper } from '../utils/debugHelper'
 
 // 路由
 const router = useRouter()
@@ -496,7 +493,18 @@ const refreshData = async () => {
 }
 
 const loadDatabases = async () => {
+  debugHelper.log('info', '开始加载数据库列表', {
+    hasActiveConnection: !!activeConnection.value,
+    isConnected: isConnected.value,
+    connectionStatus: connectionStatus.value
+  })
+  
   if (!activeConnection.value || !isConnected.value) {
+    debugHelper.log('error', '连接检查失败', {
+      hasActiveConnection: !!activeConnection.value,
+      isConnected: isConnected.value,
+      connectionStatus: connectionStatus.value
+    })
     console.log('[FE] loadDatabases: 连接检查失败', {
       hasActiveConnection: !!activeConnection.value,
       isConnected: isConnected.value,
@@ -508,6 +516,9 @@ const loadDatabases = async () => {
   const backendConnectionId = connectionStatus.value?.backendConnectionId
   
   if (!backendConnectionId) {
+    debugHelper.log('error', 'backendConnectionId 不存在', {
+      connectionStatus: connectionStatus.value
+    })
     console.error('[FE] loadDatabases: backendConnectionId 不存在', {
       connectionStatus: connectionStatus.value
     })
@@ -537,12 +548,19 @@ const loadDatabases = async () => {
         children: []
       }))
       console.log('[FE] loadDatabases: 构建的树形数据', databaseTreeData.value)
+      
+      debugHelper.log('info', '成功加载数据库列表', {
+        databaseCount: response.data.length,
+        databases: response.data
+      })
     } else {
       console.error('[FE] loadDatabases: 后端返回错误', response.error)
+      debugHelper.log('error', '后端返回错误', response.error)
       ElMessage.error(response.error || '获取数据库列表失败')
     }
   } catch (error) {
     console.error('[FE] loadDatabases: 调用异常', error)
+    debugHelper.log('error', '调用异常', error)
     ElMessage.error('获取数据库列表失败')
   }
 }
@@ -583,22 +601,47 @@ const handleDatabaseDoubleClick = (data: any) => {
 };
 
 const loadMeasurements = async (database: string) => {
-  if (!activeConnection.value || !isConnected.value) return
+  console.log('[FE] loadMeasurements: 开始加载测量值', {
+    database,
+    hasActiveConnection: !!activeConnection.value,
+    isConnected: isConnected.value,
+    connectionStatus: connectionStatus.value
+  })
+  
+  if (!activeConnection.value || !isConnected.value) {
+    console.error('[FE] loadMeasurements: 连接检查失败', {
+      hasActiveConnection: !!activeConnection.value,
+      isConnected: isConnected.value
+    })
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
   
   const backendConnectionId = connectionStatus.value?.backendConnectionId
   
-  if (!backendConnectionId) return
+  if (!backendConnectionId) {
+    console.error('[FE] loadMeasurements: backendConnectionId 不存在', {
+      connectionStatus: connectionStatus.value
+    })
+    ElMessage.error('连接未建立，请先连接到数据库')
+    return
+  }
   
   try {
-    console.log(`正在获取数据库 ${database} 的测量值列表...`)
+    console.log(`[FE] loadMeasurements: 正在获取数据库 ${database} 的测量值列表...`, {
+      backendConnectionId,
+      database
+    })
+    
     const response = await invoke('get_measurements', { 
       connectionId: backendConnectionId,
       database 
     }) as any
     
-    console.log('测量值列表响应:', response)
+    console.log('[FE] loadMeasurements: 后端响应', response)
     
     if (response.success && response.data) {
+      console.log('[FE] loadMeasurements: 成功获取测量值列表', response.data)
       // 更新树形数据
       const databaseNode = databaseTreeData.value.find(db => db.name === database)
       if (databaseNode) {
@@ -609,13 +652,22 @@ const loadMeasurements = async (database: string) => {
           database,
           count: 0 // 简化实现
         }))
-        console.log('更新后的数据库节点:', databaseNode)
+        console.log('[FE] loadMeasurements: 更新后的数据库节点', databaseNode)
+        ElMessage.success(`成功加载 ${response.data.length} 个测量值`)
+      } else {
+        console.error('[FE] loadMeasurements: 未找到数据库节点', {
+          database,
+          availableDatabases: databaseTreeData.value.map(db => db.name)
+        })
+        ElMessage.error('未找到数据库节点')
       }
     } else {
-      console.error('获取测量值列表失败:', response.error)
+      console.error('[FE] loadMeasurements: 后端返回错误', response.error)
+      ElMessage.error(response.error || '获取测量值列表失败')
     }
   } catch (error) {
-    console.error('获取测量值列表异常:', error)
+    console.error('[FE] loadMeasurements: 调用异常', error)
+    ElMessage.error(`获取测量值列表失败: ${error instanceof Error ? error.message : '未知错误'}`)
   }
 }
 

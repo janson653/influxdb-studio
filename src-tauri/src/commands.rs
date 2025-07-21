@@ -327,12 +327,20 @@ pub async fn get_measurements(
     database: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<Vec<String>>, String> {
+    tracing::info!("[BE] get_measurements called with connection_id: {}, database: {}", connection_id, database);
+    
     // 获取服务引用
     let service = {
         let conn_map = connections.lock().unwrap();
+        tracing::info!("[BE] Current connections in map: {:?}", conn_map.keys().collect::<Vec<_>>());
+        
         match conn_map.get(&connection_id) {
-            Some(service) => service.clone(),
+            Some(service) => {
+                tracing::info!("[BE] Found service for connection_id: {}", connection_id);
+                service.clone()
+            },
             None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
                 return Ok(ApiResponse {
                     success: false,
                     data: None,
@@ -342,18 +350,26 @@ pub async fn get_measurements(
         }
     };
     
+    tracing::info!("[BE] Calling service.get_measurements() for database: {}", database);
+    
     // 执行查询
     match service.get_measurements(&database).await {
-        Ok(measurements) => Ok(ApiResponse {
-            success: true,
-            data: Some(measurements),
-            error: None,
-        }),
-        Err(e) => Ok(ApiResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        }),
+        Ok(measurements) => {
+            tracing::info!("[BE] get_measurements succeeded, found {} measurements: {:?}", measurements.len(), measurements);
+            Ok(ApiResponse {
+                success: true,
+                data: Some(measurements),
+                error: None,
+            })
+        },
+        Err(e) => {
+            tracing::error!("[BE] get_measurements failed with error: {}", e);
+            Ok(ApiResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            })
+        }
     }
 }
 
