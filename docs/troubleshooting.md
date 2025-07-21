@@ -5,24 +5,12 @@
 ### Tauri 开发环境启动失败
 
 #### 问题描述
-启动 Tauri 开发环境时遇到符号链接循环错误：
-
-```
-Error: ELOOP: too many symbolic links encountered, stat '/home/janson/codebase/influxdb-studio/flatpak/build/var/run/udev/watch/1'
-```
-
-#### 根本原因
-Flatpak 构建过程中创建的临时文件系统包含大量符号链接，这些链接形成了循环引用，导致 Vite 的文件监视器无法正常工作。
+启动 Tauri 开发环境时遇到问题
 
 #### 解决方案
 
-**方案一：清理 Flatpak 构建目录（推荐）**
+**方案一：清理缓存（推荐）**
 ```bash
-# 清理 Flatpak 构建相关目录
-rm -rf flatpak/build
-rm -rf flatpak/repo
-rm -rf flatpak/.flatpak-builder
-
 # 清理 Vite 缓存
 rm -rf node_modules/.vite
 
@@ -47,9 +35,6 @@ export default defineConfig({
     watch: {
       ignored: [
         "**/src-tauri/**",
-        "**/flatpak/build/**",      // 忽略 Flatpak 构建目录
-        "**/flatpak/repo/**",       // 忽略 Flatpak 仓库目录
-        "**/flatpak/.flatpak-builder/**", // 忽略 Flatpak 构建缓存
         "**/node_modules/**"
       ],
     },
@@ -154,28 +139,10 @@ rustup target add x86_64-apple-darwin
 sudo apt update
 sudo apt install build-essential curl wget file git libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-# 检查 Flatpak 环境
-flatpak --version
-flatpak-builder --version
+
 ```
 
-### Flatpak 构建问题
 
-#### appstream-compose 缺失
-```bash
-# 检查 appstream-compose 可用性
-if command -v appstream-compose &> /dev/null; then
-  echo "✅ appstream-compose 可用"
-else
-  echo "⚠️ appstream-compose 不可用，使用备用构建方案"
-fi
-```
-
-#### GNOME Platform 版本不兼容
-```bash
-# 安装 GNOME Platform 47 运行时
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
-```
 
 ## 运行时问题
 
@@ -314,7 +281,7 @@ tail -f ~/.config/influxdb-studio/logs/app.log
 
 | 错误代码 | 说明 | 解决方案 |
 |---------|------|----------|
-| ELOOP | 符号链接循环 | 清理 Flatpak 构建目录 |
+| ELOOP | 符号链接循环 | 清理缓存目录 |
 | EADDRINUSE | 端口被占用 | 释放端口或修改配置 |
 | EACCES | 权限不足 | 检查文件权限 |
 | ECONNREFUSED | 连接被拒绝 | 检查服务是否运行 |

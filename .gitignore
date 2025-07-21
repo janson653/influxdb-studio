@@ -3,13 +3,6 @@ dist
 node_modules
 src-tauri/target
 
-# Flatpak 构建产物
-flatpak/influxdb-studio
-flatpak/.flatpak-builder
-flatpak/build
-flatpak/repo
-flatpak/*.flatpak
-
 # 开发环境缓存
 .vite
 .cache

@@ -2,17 +2,6 @@
 
 echo "测试 Tauri 启动环境..."
 
-# 清理 Flatpak 构建目录
-if [ -d "flatpak/build" ]; then
-    echo "清理 flatpak/build..."
-    rm -rf flatpak/build
-fi
-
-if [ -d "flatpak/repo" ]; then
-    echo "清理 flatpak/repo..."
-    rm -rf flatpak/repo
-fi
-
 # 清理 Vite 缓存
 if [ -d "node_modules/.vite" ]; then
     echo "清理 Vite 缓存..."

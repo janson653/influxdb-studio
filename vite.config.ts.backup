@@ -14,12 +14,9 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      // 3. tell vite to ignore watching `src-tauri` and flatpak build artifacts
+      // 3. tell vite to ignore watching `src-tauri`
       ignored: [
         "**/src-tauri/**",
-        "**/flatpak/build/**",
-        "**/flatpak/repo/**",
-        "**/flatpak/.flatpak-builder/**",
         "**/node_modules/**"
       ],
     },

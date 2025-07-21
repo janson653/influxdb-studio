@@ -52,7 +52,6 @@ pnpm tauri build
 
 ### 部署文档
 - [发布指南](./docs/release.md) - 应用打包和发布流程
-- [Flatpak 构建](./docs/flatpak.md) - Linux Flatpak 包构建
 
 ### 故障排除
 - [常见问题](./docs/troubleshooting.md) - 开发和生产环境问题解决
@@ -64,8 +63,7 @@ influxdb-studio/
 ├── src/                    # 前端源码 (Vue 3 + TypeScript)
 ├── src-tauri/             # 后端源码 (Rust + Tauri)
 ├── docs/                  # 项目文档
-├── scripts/               # 构建和部署脚本
-└── flatpak/              # Flatpak 包配置
+└── scripts/               # 构建和部署脚本
 ```
 
 ## 🤝 贡献指南

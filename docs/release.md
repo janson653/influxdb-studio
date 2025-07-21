@@ -8,7 +8,7 @@ InfluxDB Studio 使用 GitHub Actions 进行自动化构建和发布，支持 Wi
 
 - **Windows**: x86_64-pc-windows-msvc (.exe, .msi)
 - **macOS**: universal-apple-darwin (.dmg, .app)
-- **Linux**: x86_64-unknown-linux-gnu (.deb, .rpm, .AppImage, .flatpak)
+- **Linux**: x86_64-unknown-linux-gnu (.deb, .rpm, .AppImage)
 
 ## 发布流程
 
@@ -59,7 +59,7 @@ git push origin v0.1.0
 - `influxdb-studio_0.1.0_amd64.deb` - Debian 包
 - `influxdb-studio-0.1.0-1.x86_64.rpm` - RPM 包
 - `influxdb-studio_0.1.0_amd64.AppImage` - AppImage
-- `influxdb-studio.flatpak` - Flatpak 包
+
 
 ## GitHub Actions 工作流
 
@@ -75,7 +75,6 @@ git push origin v0.1.0
 **功能**：
 - 多平台构建（macOS、Ubuntu、Windows）
 - 自动发布到 GitHub Releases
-- 智能 Flatpak 构建（仅 Ubuntu）
 
 **优化特性**：
 - 🚀 智能检测 `appstream-compose` 可用性
@@ -83,21 +82,7 @@ git push origin v0.1.0
 - 📦 备用构建方案处理依赖缺失
 - 📊 详细的构建状态报告
 
-#### 2. `flatpak.yml` - 专用 Flatpak 构建工作流
 
-**触发条件**：
-- 推送标签（`v*`）
-- 推送到 `main` 分支的 PR
-- 手动触发
-
-**功能**：
-- 多版本 GNOME Platform 并行构建
-- 自动选择最佳版本作为主要发布
-- 完整的包测试和验证
-
-**矩阵构建**：
-- GNOME Platform 版本：47
-- 每个版本独立构建和测试
 - 选择最新稳定版本作为主要发布
 
 #### 3. `test.yml` - 测试工作流
@@ -109,7 +94,6 @@ git push origin v0.1.0
 **功能**：
 - 前端构建测试
 - Rust 代码检查（check、clippy、test）
-- Flatpak 配置验证（PR 时）
 
 ### 智能构建特性
 
@@ -132,11 +116,7 @@ fi
 3. 执行构建
 4. 恢复原始配置
 
-#### 多版本支持
-```yaml
-# 智能安装 GNOME Platform 运行时
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47 -y
-```
+
 
 ## 代码签名配置
 
@@ -246,14 +226,7 @@ TAURI_KEY_PASSWORD: <key password>
 - 详细的错误日志
 - 构建状态报告
 
-### 调试信息
 
-```yaml
-# 版本信息输出
-flatpak-builder --version
-flatpak --version
-appstream-compose --version || echo "⚠️  appstream-compose 不可用"
-```
 
 ## 性能优化
 
@@ -264,7 +237,6 @@ appstream-compose --version || echo "⚠️  appstream-compose 不可用"
 
 ### 并行构建
 - 多平台并行构建
-- 多版本 GNOME Platform 并行构建
 - 独立的测试和构建步骤
 
 ## 监控和维护
@@ -276,27 +248,22 @@ appstream-compose --version || echo "⚠️  appstream-compose 不可用"
 
 ### 版本管理
 - 自动版本标签
-- 多版本兼容性测试
-- 最佳版本选择
+- 版本兼容性测试
 
 ## 使用建议
 
 ### 开发阶段
 - 使用 `test.yml` 进行快速验证
-- PR 时自动测试 Flatpak 配置
 
 ### 发布阶段
 - 推送标签触发完整构建
 - 自动发布到 GitHub Releases
-- 多平台和多版本支持
+- 多平台支持
 
 ### 手动触发
 ```bash
 # 手动触发构建
 gh workflow run build.yml
-
-# 手动触发 Flatpak 构建
-gh workflow run flatpak.yml
 
 # 手动触发测试
 gh workflow run test.yml

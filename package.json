@@ -8,9 +8,7 @@
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev:wsl": "LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 GALLIUM_DRIVER=softpipe tauri dev",
-    "build:flatpak": "chmod +x scripts/build-flatpak.sh && ./scripts/build-flatpak.sh",
-    "build:flatpak:clean": "chmod +x scripts/build-flatpak.sh && ./scripts/build-flatpak.sh clean"
+    "tauri:dev:wsl": "LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 GALLIUM_DRIVER=softpipe tauri dev"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

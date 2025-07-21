@@ -190,18 +190,10 @@ cd src-tauri && cargo clippy
 
 #### 1. Tauri 开发环境启动失败
 
-**问题**: 符号链接循环错误
-```
-Error: ELOOP: too many symbolic links encountered, stat '/home/janson/codebase/influxdb-studio/flatpak/build/var/run/udev/watch/1'
-```
+**问题**: 开发环境启动失败
 
 **解决方案**:
 ```bash
-# 清理 Flatpak 构建目录
-rm -rf flatpak/build
-rm -rf flatpak/repo
-rm -rf flatpak/.flatpak-builder
-
 # 清理 Vite 缓存
 rm -rf node_modules/.vite
 
@@ -247,9 +239,6 @@ export default defineConfig({
     watch: {
       ignored: [
         "**/src-tauri/**",
-        "**/flatpak/build/**",
-        "**/flatpak/repo/**",
-        "**/flatpak/.flatpak-builder/**",
         "**/node_modules/**"
       ],
     },
@@ -266,8 +255,7 @@ export default defineConfig({
 #!/bin/bash
 # scripts/dev-setup.sh
 
-# 清理 Flatpak 构建目录
-rm -rf flatpak/build flatpak/repo flatpak/.flatpak-builder
+
 
 # 清理缓存
 rm -rf node_modules/.vite
