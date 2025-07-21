@@ -61,17 +61,79 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
+          
+          # 尝试安装所有可能的包名变体
           sudo apt-get install -y \
             libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
             build-essential \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libsoup2.4-dev \
-            libjavascriptcoregtk-4.0-dev
+            libjavascriptcoregtk-4.0-dev \
+            libjavascriptcoregtk-4.1-dev \
+            pkg-config \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            libappindicator3-dev \
+            libnotify-dev \
+            libdbus-1-dev \
+            libx11-dev \
+            libxcomposite-dev \
+            libxcursor-dev \
+            libxdamage-dev \
+            libxext-dev \
+            libxfixes-dev \
+            libxi-dev \
+            libxrandr-dev \
+            libxrender-dev \
+            libxss-dev \
+            libxtst-dev
+          
+          # 如果主要包不存在，尝试安装备用包
+          if ! pkg-config --exists javascriptcoregtk-4.1; then
+            echo "javascriptcoregtk-4.1 not found, trying alternative packages..."
+            sudo apt-get install -y \
+              libwebkit2gtk-4.0-dev \
+              libjavascriptcoregtk-4.0-dev \
+              libwebkit2gtk-4.1-dev || true
+          fi
+          
+          # 验证关键库是否安装成功
+          pkg-config --exists javascriptcoregtk-4.1 && echo "javascriptcoregtk-4.1 found" || echo "javascriptcoregtk-4.1 not found"
+          pkg-config --exists webkit2gtk-4.0 && echo "webkit2gtk-4.0 found" || echo "webkit2gtk-4.0 not found"
+
+      - name: Setup environment variables (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          # 设置 pkg-config 路径
+          export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          
+          # 验证环境变量设置
+          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          pkg-config --list-all | grep -E "(javascriptcore|webkit)" || echo "No javascriptcore/webkit packages found"
 
       - name: Install frontend dependencies
         run: pnpm install
+
+      - name: Debug system info (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          echo "=== System Information ==="
+          uname -a
+          echo "=== Rust Version ==="
+          rustc --version
+          echo "=== Cargo Version ==="
+          cargo --version
+          echo "=== Installed Libraries ==="
+          dpkg -l | grep -E "(webkit|javascriptcore|gtk)" | head -20
+          echo "=== pkg-config Libraries ==="
+          pkg-config --list-all | grep -E "(webkit|javascriptcore)" || echo "No webkit/javascriptcore packages found"
+          echo "=== Library Search Paths ==="
+          echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          find /usr -name "*.pc" | grep -E "(webkit|javascriptcore)" | head -10 || echo "No .pc files found"
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
