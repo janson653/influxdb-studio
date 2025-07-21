@@ -250,12 +250,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Refresh, Folder, Document, Setting, Plus, Link, Edit, Delete, ArrowLeft,
-  Connection, Loading, FolderOpened
+  Refresh, Folder, Document, Connection, Loading, FolderOpened
 } from '@element-plus/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '../stores/connectionStore'

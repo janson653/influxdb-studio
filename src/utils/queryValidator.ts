@@ -246,21 +246,22 @@ export class QueryValidator {
   
   /**
    * 验证 Flux 语法
+   * TODO: 为 InfluxDB v2.x 支持准备，目前未使用
    */
-  private static validateFlux(query: string): QueryValidationResult {
-    // Flux 语法比较复杂，这里只做基本检查
-    if (query.includes('from(') || query.includes('import ')) {
-      return {
-        isValid: true
-      }
-    }
-    
-    return {
-      isValid: false,
-      error: 'Flux 查询语法不正确',
-      suggestion: 'Flux 查询应该以 from() 或 import 开头，例如: from(bucket: "my-bucket") |> range(start: -1h)'
-    }
-  }
+  // private static validateFlux(query: string): QueryValidationResult {
+  //   // Flux 语法比较复杂，这里只做基本检查
+  //   if (query.includes('from(') || query.includes('import ')) {
+  //     return {
+  //       isValid: true
+  //     }
+  //   }
+  //   
+  //   return {
+  //     isValid: false,
+  //     error: 'Flux 查询语法不正确',
+  //     suggestion: 'Flux 查询应该以 from() 或 import 开头，例如: from(bucket: "my-bucket") |> range(start: -1h)'
+  //   }
+  // }
   
   /**
    * 获取查询示例

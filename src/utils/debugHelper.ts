@@ -3,6 +3,19 @@
  * 用于在生产环境中收集和显示调试信息
  */
 
+// 为 import.meta.env 添加类型声明
+declare global {
+  interface ImportMeta {
+    env: {
+      DEV: boolean
+      PROD: boolean
+      MODE: string
+      BASE_URL: string
+      [key: string]: any
+    }
+  }
+}
+
 export interface DebugInfo {
   timestamp: string
   level: 'info' | 'warn' | 'error'

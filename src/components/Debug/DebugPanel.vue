@@ -62,12 +62,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { debugHelper, type DebugInfo } from '../../utils/debugHelper'
+import { debugHelper } from '../../utils/debugHelper'
 import { useConnectionStore } from '../../stores/connectionStore'
 
-const props = defineProps<{
+// 定义数据库树项的类型
+interface DatabaseTreeItem {
+  name: string
+  type?: string
+  childrenCount?: number
+  children?: any[]
+}
+
+defineProps<{
   isVisible: boolean
 }>()
 
@@ -92,7 +100,7 @@ const databaseTreeStatus = computed(() => {
   // 这里需要从父组件传入数据库树数据
   return {
     treeDataLength: 0,
-    treeData: []
+    treeData: [] as DatabaseTreeItem[]
   }
 })
 
