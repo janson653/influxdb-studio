@@ -158,8 +158,8 @@ const tableColumns = computed(() => {
   return queryResults.value?.series?.[0]?.columns || [];
 });
 
-const getQueryLanguage = () => activeConnection.value?.version === InfluxDBVersion.V2 ? 'flux' : 'sql';
-const getDatabasePlaceholder = () => activeConnection.value?.version === InfluxDBVersion.V2 ? '选择存储桶' : '选择数据库';
+const getQueryLanguage = () => 'sql'; // 目前只支持 v1.x
+const getDatabasePlaceholder = () => '选择数据库'; // 目前只支持 v1.x
 
 const handleDatabaseChange = (db: string) => selectedDatabase.value = db;
 

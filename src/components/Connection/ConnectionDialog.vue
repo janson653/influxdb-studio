@@ -29,8 +29,8 @@
           @change="handleVersionChange"
         >
           <el-option label="InfluxDB v1.x" :value="InfluxDBVersion.V1" />
-          <el-option label="InfluxDB v2.x" :value="InfluxDBVersion.V2" />
-          <el-option label="InfluxDB v3.x" :value="InfluxDBVersion.V3" />
+          <el-option label="InfluxDB v2.x (开发中)" :value="InfluxDBVersion.V2" disabled />
+          <el-option label="InfluxDB v3.x (开发中)" :value="InfluxDBVersion.V3" disabled />
         </el-select>
       </el-form-item>
       
@@ -247,22 +247,8 @@ const getRules = (): FormRules => {
     ]
   }
 
-  // 根据版本添加特定验证规则
+  // 目前只支持 v1.x 版本
   if (form.version === InfluxDBVersion.V1) {
-    baseRules.database = [
-      { required: true, message: '请输入数据库名称', trigger: 'blur' }
-    ]
-  } else if (form.version === InfluxDBVersion.V2) {
-    baseRules.token = [
-      { required: true, message: '请输入 Token', trigger: 'blur' }
-    ]
-    baseRules.org = [
-      { required: true, message: '请输入组织名称', trigger: 'blur' }
-    ]
-  } else if (form.version === InfluxDBVersion.V3) {
-    baseRules.token = [
-      { required: true, message: '请输入 Token', trigger: 'blur' }
-    ]
     baseRules.database = [
       { required: true, message: '请输入数据库名称', trigger: 'blur' }
     ]
@@ -301,18 +287,16 @@ const resetFormData = () => {
 }
 
 const handleVersionChange = () => {
+  // 如果选择了开发中的版本，强制切换回 v1.x
+  if (form.version === InfluxDBVersion.V2 || form.version === InfluxDBVersion.V3) {
+    ElMessage.warning('InfluxDB v2.x 和 v3.x 支持正在开发中，请使用 v1.x 版本')
+    form.version = InfluxDBVersion.V1
+    return
+  }
+  
   // 版本切换时清空相关字段
   if (form.version === InfluxDBVersion.V1) {
     form.token = ''
-    form.org = ''
-    form.bucket = ''
-  } else if (form.version === InfluxDBVersion.V2) {
-    form.database = ''
-    form.username = ''
-    form.password = ''
-  } else if (form.version === InfluxDBVersion.V3) {
-    form.username = ''
-    form.password = ''
     form.org = ''
     form.bucket = ''
   }
@@ -335,21 +319,10 @@ watch(() => props.connection, (newConnection) => {
       port: newConnection.config.port,
       useSsl: newConnection.config.useSsl,
       timeout: newConnection.config.timeout,
-      // 根据版本填充对应字段
-      ...(newConnection.version === InfluxDBVersion.V1 && {
-        database: (newConnection.config as any).database,
-        username: (newConnection.config as any).username || '',
-        password: (newConnection.config as any).password || ''
-      }),
-      ...(newConnection.version === InfluxDBVersion.V2 && {
-        token: (newConnection.config as any).token,
-        org: (newConnection.config as any).org,
-        bucket: (newConnection.config as any).bucket || ''
-      }),
-      ...(newConnection.version === InfluxDBVersion.V3 && {
-        token: (newConnection.config as any).token,
-        database: (newConnection.config as any).database
-      })
+      // 目前只支持 v1.x 版本
+      database: (newConnection.config as any).database,
+      username: (newConnection.config as any).username || '',
+      password: (newConnection.config as any).password || ''
     })
   } else {
     // 新建模式，重置表单数据
@@ -382,34 +355,15 @@ const handleSubmit = async () => {
       form.id = `conn_${Date.now()}`
     }
     
-    // 根据版本构建配置对象
+    // 目前只支持 v1.x 版本
     let config: any = {
       host: form.host,
       port: form.port,
       useSsl: form.useSsl,
-      timeout: form.timeout
-    }
-    
-    if (form.version === InfluxDBVersion.V1) {
-      config = {
-        ...config,
-        database: form.database,
-        username: form.username || undefined,
-        password: form.password || undefined
-      }
-    } else if (form.version === InfluxDBVersion.V2) {
-      config = {
-        ...config,
-        token: form.token,
-        org: form.org,
-        bucket: form.bucket || undefined
-      }
-    } else if (form.version === InfluxDBVersion.V3) {
-      config = {
-        ...config,
-        token: form.token,
-        database: form.database
-      }
+      timeout: form.timeout,
+      database: form.database,
+      username: form.username || undefined,
+      password: form.password || undefined
     }
     
     // 创建连接配置对象
@@ -446,34 +400,15 @@ const testConnection = async () => {
     
     isTesting.value = true
     
-    // 构建测试配置
+    // 目前只支持 v1.x 版本
     let config: any = {
       host: form.host,
       port: form.port,
       useSsl: form.useSsl,
-      timeout: form.timeout
-    }
-    
-    if (form.version === InfluxDBVersion.V1) {
-      config = {
-        ...config,
-        database: form.database,
-        username: form.username || undefined,
-        password: form.password || undefined
-      }
-    } else if (form.version === InfluxDBVersion.V2) {
-      config = {
-        ...config,
-        token: form.token,
-        org: form.org,
-        bucket: form.bucket || undefined
-      }
-    } else if (form.version === InfluxDBVersion.V3) {
-      config = {
-        ...config,
-        token: form.token,
-        database: form.database
-      }
+      timeout: form.timeout,
+      database: form.database,
+      username: form.username || undefined,
+      password: form.password || undefined
     }
     
     // 创建测试连接配置

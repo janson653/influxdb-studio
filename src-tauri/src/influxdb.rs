@@ -727,17 +727,18 @@ pub async fn create_influxdb_service(profile: &ConnectionProfile) -> Result<Infl
             Ok(InfluxDBService::V1(service))
         }
         InfluxDBVersion::V2 => {
-            let config = profile.get_v2_config()
-                .map_err(|e| AppError::Config(format!("Invalid v2 config: {}", e)))?;
-            let service = InfluxDBV2Service::new(config).await?;
-            Ok(InfluxDBService::V2(service))
+            // TODO: 实现 InfluxDB v2.x 支持
+            // - 需要实现 InfluxDBV2Service 的完整功能
+            // - 支持 Flux 查询语言
+            // - 支持 Token 认证和存储桶管理
+            return Err(AppError::Config("InfluxDB v2.x 支持正在开发中，请使用 v1.x 版本".to_string()));
         }
         InfluxDBVersion::V3 => {
-            // 简化实现：对于 v3.x，暂时使用 v2.x 的服务
-            let config = profile.get_v2_config()
-                .map_err(|e| AppError::Config(format!("Invalid v3 config: {}", e)))?;
-            let service = InfluxDBV2Service::new(config).await?;
-            Ok(InfluxDBService::V2(service))
+            // TODO: 实现 InfluxDB v3.x 支持
+            // - 需要实现 InfluxDBV3Service
+            // - 支持 SQL 查询语言
+            // - 支持新的数据模型
+            return Err(AppError::Config("InfluxDB v3.x 支持正在开发中，请使用 v1.x 版本".to_string()));
         }
     }
 } 

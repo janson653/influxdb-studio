@@ -1,11 +1,11 @@
 # InfluxDB Studio
 
-一个基于 Tauri + Vue 3 构建的跨平台 InfluxDB 桌面客户端，支持 InfluxDB v1.x、v2.x 和 v3.x。
+一个基于 Tauri + Vue 3 构建的跨平台 InfluxDB 桌面客户端，目前支持 InfluxDB v1.x，v2.x 和 v3.x 支持正在开发中。
 
 ## ✨ 特性
 
 - 🚀 **跨平台支持**：Windows、macOS、Linux
-- 🔌 **多版本兼容**：支持 InfluxDB v1.x
+- 🔌 **多版本兼容**：目前支持 InfluxDB v1.x，v2.x 和 v3.x 支持正在开发中
 - 💻 **现代化界面**：基于 Vue 3 + Element Plus
 - 🔍 **智能查询**：Monaco Editor 提供语法高亮
 - 📊 **数据可视化**：内置图表和数据分析功能
@@ -49,6 +49,7 @@ pnpm tauri build
 - [技术架构](./docs/architecture.md) - 详细的技术架构和设计说明
 - [开发指南](./docs/development.md) - 开发环境搭建和开发流程
 - [API 文档](./docs/api.md) - 前后端接口说明
+- [开发计划](./docs/development-plan.md) - v2.x 和 v3.x 支持开发计划
 
 ### 部署文档
 - [发布指南](./docs/release.md) - 应用打包和发布流程
@@ -77,6 +78,16 @@ influxdb-studio/
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 📋 版本支持
+
+| InfluxDB 版本 | 支持状态 | 说明 |
+|--------------|---------|------|
+| v1.x | ✅ 完整支持 | 所有功能可用 |
+| v2.x | 🚧 开发中 | 预计 2-3 个月完成 |
+| v3.x | 📋 计划中 | 预计 4-6 个月完成 |
+
+详细开发计划请查看 [开发计划文档](./docs/development-plan.md)。
 
 ## 🔗 相关链接
 

@@ -348,56 +348,36 @@ const getConnectionStatusText = () => {
 const getExplorerTitle = () => {
   if (!activeConnection.value) return '数据库浏览器'
   
-  switch (activeConnection.value.version) {
-    case InfluxDBVersion.V1: return '数据库浏览器'
-    case InfluxDBVersion.V2: return '存储桶浏览器'
-    case InfluxDBVersion.V3: return '数据库浏览器'
-    default: return '数据库浏览器'
-  }
+  // 目前只支持 v1.x
+  return '数据库浏览器'
 }
 
 const getDatabaseListTitle = () => {
   if (!activeConnection.value) return '数据库'
   
-  switch (activeConnection.value.version) {
-    case InfluxDBVersion.V1: return '数据库'
-    case InfluxDBVersion.V2: return '存储桶'
-    case InfluxDBVersion.V3: return '数据库'
-    default: return '数据库'
-  }
+  // 目前只支持 v1.x
+  return '数据库'
 }
 
 const getDatabaseNameLabel = () => {
   if (!activeConnection.value) return '数据库'
   
-  switch (activeConnection.value.version) {
-    case InfluxDBVersion.V1: return '数据库'
-    case InfluxDBVersion.V2: return '存储桶'
-    case InfluxDBVersion.V3: return '数据库'
-    default: return '数据库'
-  }
+  // 目前只支持 v1.x
+  return '数据库'
 }
 
 const getMeasurementNameLabel = () => {
   if (!activeConnection.value) return '测量值'
   
-  switch (activeConnection.value.version) {
-    case InfluxDBVersion.V1: return '测量值'
-    case InfluxDBVersion.V2: return '测量值'
-    case InfluxDBVersion.V3: return '表'
-    default: return '测量值'
-  }
+  // 目前只支持 v1.x
+  return '测量值'
 }
 
 const getMeasurementCountLabel = () => {
   if (!activeConnection.value) return '测量值数量'
   
-  switch (activeConnection.value.version) {
-    case InfluxDBVersion.V1: return '测量值数量'
-    case InfluxDBVersion.V2: return '测量值数量'
-    case InfluxDBVersion.V3: return '表数量'
-    default: return '测量值数量'
-  }
+  // 目前只支持 v1.x
+  return '测量值数量'
 }
 
 const getDetailTitle = () => {

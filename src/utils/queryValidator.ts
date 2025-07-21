@@ -22,18 +22,14 @@ export class QueryValidator {
       }
     }
     
-    // 根据版本进行验证
-    switch (version) {
-      case InfluxDBVersion.V1:
-        return this.validateInfluxQL(trimmedQuery)
-      case InfluxDBVersion.V2:
-      case InfluxDBVersion.V3:
-        return this.validateFlux(trimmedQuery)
-      default:
-        return {
-          isValid: false,
-          error: '不支持的 InfluxDB 版本'
-        }
+    // 目前只支持 v1.x 版本
+    if (version === InfluxDBVersion.V1) {
+      return this.validateInfluxQL(trimmedQuery)
+    } else {
+      return {
+        isValid: false,
+        error: '目前只支持 InfluxDB v1.x，v2.x 和 v3.x 支持正在开发中'
+      }
     }
   }
   
@@ -270,26 +266,20 @@ export class QueryValidator {
    * 获取查询示例
    */
   static getQueryExamples(version: InfluxDBVersion): string[] {
-    switch (version) {
-      case InfluxDBVersion.V1:
-        return [
-          'SELECT * FROM "measurement" LIMIT 10',
-          'INSERT INTO "testdb" cpu,host=server01 value=0.64',
-          'INSERT INTO "testdb" memory,host=server01,region=us-west value=0.32',
-          'SHOW DATABASES',
-          'SHOW MEASUREMENTS',
-          'CREATE DATABASE "new_database"'
-        ]
-      case InfluxDBVersion.V2:
-      case InfluxDBVersion.V3:
-        return [
-          'from(bucket: "my-bucket")\n  |> range(start: -1h)\n  |> limit(n: 10)',
-          'import "influxdata/influxdb/v1"\nv1.measurementTagValues(bucket: "my-bucket", measurement: "cpu")',
-          'buckets()',
-          'import "influxdata/influxdb/schema"\nschema.measurements(bucket: "my-bucket")'
-        ]
-      default:
-        return []
+    if (version === InfluxDBVersion.V1) {
+      return [
+        'SELECT * FROM "measurement" LIMIT 10',
+        'INSERT INTO "testdb" cpu,host=server01 value=0.64',
+        'INSERT INTO "testdb" memory,host=server01,region=us-west value=0.32',
+        'SHOW DATABASES',
+        'SHOW MEASUREMENTS',
+        'CREATE DATABASE "new_database"'
+      ]
+    } else {
+      return [
+        '目前只支持 InfluxDB v1.x 查询示例',
+        'v2.x 和 v3.x 支持正在开发中'
+      ]
     }
   }
 } 
