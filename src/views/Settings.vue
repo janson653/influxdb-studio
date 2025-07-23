@@ -65,9 +65,8 @@
                   
                   <el-form-item label="主题">
                     <el-radio-group v-model="generalSettings.theme">
-                      <el-radio label="light">浅色主题</el-radio>
+                      <el-radio label="geek">Geek 主题</el-radio>
                       <el-radio label="dark">深色主题</el-radio>
-                      <el-radio label="auto">跟随系统</el-radio>
                     </el-radio-group>
                   </el-form-item>
                   
@@ -293,7 +292,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
   Setting, 
@@ -303,6 +302,7 @@ import {
   Download, 
   InfoFilled 
 } from '@element-plus/icons-vue'
+import { useThemeStore } from '../stores/themeStore'
 
 // 响应式数据
 const activeSetting = ref('general')
@@ -311,13 +311,21 @@ const activeSetting = ref('general')
 const appVersion = ref('1.0.0')
 const buildTime = ref('2024-01-01')
 
+// 主题管理
+const themeStore = useThemeStore()
+
 // 设置数据
 const generalSettings = reactive({
   language: 'zh-CN',
-  theme: 'light',
+  theme: themeStore.currentTheme,
   autoSave: true,
   autoUpdate: true
 })
+
+watch(() => generalSettings.theme, (newTheme) => {
+  themeStore.setTheme(newTheme)
+})
+
 
 const editorSettings = reactive({
   fontSize: 14,

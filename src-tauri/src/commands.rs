@@ -146,27 +146,8 @@ pub async fn get_databases(
         }
     };
     
-    tracing::info!("[BE] Calling service.get_databases()");
-    
-    // 执行查询
-    match service.get_databases().await {
-        Ok(databases) => {
-            tracing::info!("[BE] get_databases succeeded, found {} databases: {:?}", databases.len(), databases);
-            Ok(ApiResponse {
-                success: true,
-                data: Some(databases),
-                error: None,
-            })
-        },
-        Err(e) => {
-            tracing::error!("[BE] get_databases failed with error: {}", e);
-            Ok(ApiResponse {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            })
-        }
-    }
+    // Use the database module to handle the operation
+    crate::database::list_databases(&*service).await
 }
 
 /// 获取数据库信息
@@ -191,19 +172,8 @@ pub async fn get_database_info(
         }
     };
     
-    // 执行查询
-    match service.get_database_info(&database).await {
-        Ok(info) => Ok(ApiResponse {
-            success: true,
-            data: Some(info),
-            error: None,
-        }),
-        Err(e) => Ok(ApiResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        }),
-    }
+    // Use the database module to handle the operation
+    crate::database::get_database_info(&*service, &database).await
 }
 
 /// 执行查询
@@ -249,14 +219,18 @@ pub async fn execute_query(
 pub async fn create_database(
     connection_id: String,
     database: String,
+    retention_policy: Option<crate::models::RetentionPolicy>,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<bool>, String> {
+    tracing::info!("[BE] create_database called with connection_id: {}, database: {}", connection_id, database);
+    
     // 获取服务引用
     let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
             Some(service) => service.clone(),
             None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
                 return Ok(ApiResponse {
                     success: false,
                     data: None,
@@ -266,20 +240,8 @@ pub async fn create_database(
         }
     };
     
-    // 执行创建数据库查询
-    let query = format!("CREATE DATABASE \"{database}\"");
-    match service.query(&query).await {
-        Ok(_) => Ok(ApiResponse {
-            success: true,
-            data: Some(true),
-            error: None,
-        }),
-        Err(e) => Ok(ApiResponse {
-            success: false,
-            data: Some(false),
-            error: Some(e.to_string()),
-        }),
-    }
+    // Use the database module to handle the operation
+    crate::database::create_database(&*service, &database, retention_policy).await
 }
 
 /// 删除数据库
@@ -289,12 +251,15 @@ pub async fn drop_database(
     database: String,
     connections: State<'_, ConnectionMap>,
 ) -> Result<ApiResponse<bool>, String> {
+    tracing::info!("[BE] drop_database called with connection_id: {}, database: {}", connection_id, database);
+    
     // 获取服务引用
     let service = {
         let conn_map = connections.lock().unwrap();
         match conn_map.get(&connection_id) {
             Some(service) => service.clone(),
             None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
                 return Ok(ApiResponse {
                     success: false,
                     data: None,
@@ -304,20 +269,8 @@ pub async fn drop_database(
         }
     };
     
-    // 执行删除数据库查询
-    let query = format!("DROP DATABASE \"{database}\"");
-    match service.query(&query).await {
-        Ok(_) => Ok(ApiResponse {
-            success: true,
-            data: Some(true),
-            error: None,
-        }),
-        Err(e) => Ok(ApiResponse {
-            success: false,
-            data: Some(false),
-            error: Some(e.to_string()),
-        }),
-    }
+    // Use the database module to handle the operation
+    crate::database::delete_database(&*service, &database).await
 }
 
 /// 获取测量值列表
@@ -350,27 +303,103 @@ pub async fn get_measurements(
         }
     };
     
-    tracing::info!("[BE] Calling service.get_measurements() for database: {}", database);
+    // Use the measurement module to handle the operation
+    crate::measurement::list_measurements(&*service, &database).await
+}
+
+/// 创建测量
+#[tauri::command]
+pub async fn create_measurement(
+    connection_id: String,
+    database: String,
+    measurement: String,
+    fields: Vec<(String, String, serde_json::Value)>, // (name, type, value)
+    tags: Option<Vec<(String, String)>>, // (name, value)
+    connections: State<'_, ConnectionMap>,
+) -> Result<ApiResponse<bool>, String> {
+    tracing::info!("[BE] create_measurement called with connection_id: {}, database: {}, measurement: {}", 
+                  connection_id, database, measurement);
     
-    // 执行查询
-    match service.get_measurements(&database).await {
-        Ok(measurements) => {
-            tracing::info!("[BE] get_measurements succeeded, found {} measurements: {:?}", measurements.len(), measurements);
-            Ok(ApiResponse {
-                success: true,
-                data: Some(measurements),
-                error: None,
-            })
-        },
-        Err(e) => {
-            tracing::error!("[BE] get_measurements failed with error: {}", e);
-            Ok(ApiResponse {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            })
+    // 获取服务引用
+    let service = {
+        let conn_map = connections.lock().unwrap();
+        match conn_map.get(&connection_id) {
+            Some(service) => service.clone(),
+            None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
+                return Ok(ApiResponse {
+                    success: false,
+                    data: None,
+                    error: Some("Connection not found".to_string()),
+                });
+            }
         }
-    }
+    };
+    
+    // Use the measurement module to handle the operation
+    crate::measurement::create_measurement(&*service, &database, &measurement, fields, tags).await
+}
+
+/// 获取测量信息
+#[tauri::command]
+pub async fn get_measurement_info(
+    connection_id: String,
+    database: String,
+    measurement: String,
+    connections: State<'_, ConnectionMap>,
+) -> Result<ApiResponse<crate::models::Measurement>, String> {
+    tracing::info!("[BE] get_measurement_info called with connection_id: {}, database: {}, measurement: {}", 
+                  connection_id, database, measurement);
+    
+    // 获取服务引用
+    let service = {
+        let conn_map = connections.lock().unwrap();
+        match conn_map.get(&connection_id) {
+            Some(service) => service.clone(),
+            None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
+                return Ok(ApiResponse {
+                    success: false,
+                    data: None,
+                    error: Some("Connection not found".to_string()),
+                });
+            }
+        }
+    };
+    
+    // Use the measurement module to handle the operation
+    crate::measurement::get_measurement_info(&*service, &database, &measurement).await
+}
+
+/// 删除测量
+#[tauri::command]
+pub async fn delete_measurement(
+    connection_id: String,
+    database: String,
+    measurement: String,
+    connections: State<'_, ConnectionMap>,
+) -> Result<ApiResponse<bool>, String> {
+    tracing::info!("[BE] delete_measurement called with connection_id: {}, database: {}, measurement: {}", 
+                  connection_id, database, measurement);
+    
+    // 获取服务引用
+    let service = {
+        let conn_map = connections.lock().unwrap();
+        match conn_map.get(&connection_id) {
+            Some(service) => service.clone(),
+            None => {
+                tracing::error!("[BE] Connection not found for connection_id: {}", connection_id);
+                return Ok(ApiResponse {
+                    success: false,
+                    data: None,
+                    error: Some("Connection not found".to_string()),
+                });
+            }
+        }
+    };
+    
+    // Use the measurement module to handle the operation
+    crate::measurement::delete_measurement(&*service, &database, &measurement).await
 }
 
 /// 获取应用版本
@@ -381,4 +410,4 @@ pub async fn get_app_version() -> Result<ApiResponse<String>, String> {
         data: Some(env!("CARGO_PKG_VERSION").to_string()),
         error: None,
     })
-} 
+}

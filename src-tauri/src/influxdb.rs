@@ -3,6 +3,8 @@ use crate::models::{
     QueryResult, DatabaseInfo, Series
 };
 use crate::error::AppError;
+use crate::influxdb_trait::InfluxDB;
+use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::Value;
 
@@ -10,6 +12,30 @@ use serde_json::Value;
 pub enum InfluxDBService {
     V1(InfluxDBV1Service),
     V2(InfluxDBV2Service),
+}
+
+#[async_trait]
+impl InfluxDB for InfluxDBService {
+    async fn get_databases(&self) -> Result<Vec<String>, AppError> {
+        match self {
+            InfluxDBService::V1(service) => service.get_databases().await,
+            InfluxDBService::V2(service) => service.get_databases().await,
+        }
+    }
+
+    async fn get_database_info(&self, db_name: &str) -> Result<DatabaseInfo, AppError> {
+        match self {
+            InfluxDBService::V1(service) => service.get_database_info(db_name).await,
+            InfluxDBService::V2(service) => service.get_database_info(db_name).await,
+        }
+    }
+
+    async fn query(&self, query: &str) -> Result<Vec<QueryResult>, AppError> {
+        match self {
+            InfluxDBService::V1(service) => service.query(query).await.map(|r| vec![r]),
+            InfluxDBService::V2(service) => service.query(query).await.map(|r| vec![r]),
+        }
+    }
 }
 
 impl InfluxDBService {
@@ -168,7 +194,7 @@ impl InfluxDBV1Service {
                 execution_time,
             })
         } else {
-            let error_message = format!("HTTP {status}: {response_text}");
+            let error_message = format!("HTTP {}: {}", status, response_text);
             tracing::error!("[BE] Query failed: {}", error_message);
             Err(AppError::Query(error_message))
         }
@@ -231,7 +257,7 @@ impl InfluxDBV1Service {
                 execution_time,
             })
         } else {
-            let error_message = format!("HTTP {status}: {response_text}");
+            let error_message = format!("HTTP {}: {}", status, response_text);
             tracing::error!("[BE] Write failed: {}", error_message);
             Err(AppError::Query(error_message))
         }
@@ -380,7 +406,7 @@ impl InfluxDBV1Service {
 
     async fn get_database_info(&self, database: &str) -> Result<DatabaseInfo, AppError> {
         // 获取保留策略
-        let rp_query = format!("SHOW RETENTION POLICIES ON {database}");
+        let rp_query = format!("SHOW RETENTION POLICIES ON {}", database);
         let rp_result = self.query(&rp_query).await?;
         
         let mut retention_policies = Vec::new();
@@ -417,7 +443,7 @@ impl InfluxDBV1Service {
     }
 
     async fn get_measurements(&self, database: &str) -> Result<Vec<String>, AppError> {
-        let query = format!("SHOW MEASUREMENTS ON {database}");
+        let query = format!("SHOW MEASUREMENTS ON {}", database);
         let result = self.query(&query).await?;
         
         let mut measurements = Vec::new();
@@ -528,7 +554,7 @@ impl InfluxDBV2Service {
         
         let response = self.client
             .get(&url)
-            .header("Authorization", format!("Token {token}"))
+            .header("Authorization", format!("Token {}", token))
             .send()
             .await
             .map_err(|e| AppError::Network(e.to_string()))?;
@@ -561,7 +587,7 @@ impl InfluxDBV2Service {
         let token = &self.config.token;
         
         // 构建带有 org 参数的 URL
-        let url = format!("{}/api/v2/query?org={org}", self.base_url);
+        let url = format!("{}/api/v2/query?org={}", self.base_url, org);
         
         // InfluxDB 2.x 使用 Flux 查询语言
         let flux_query = self.convert_to_flux_with_bucket(query, bucket)?;
@@ -569,7 +595,7 @@ impl InfluxDBV2Service {
         
         let response = self.client
             .post(&url)
-            .header("Authorization", format!("Token {token}"))
+            .header("Authorization", format!("Token {}", token))
             .header("Content-Type", "application/vnd.flux")
             .body(flux_query)
             .send()
@@ -591,7 +617,7 @@ impl InfluxDBV2Service {
             })
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            let error_message = format!("HTTP {status}: {error_text}");
+            let error_message = format!("HTTP {}: {}", status, error_text);
             tracing::error!("Query failed: {}", error_message);
             Err(AppError::Query(error_message))
         }
@@ -637,7 +663,7 @@ impl InfluxDBV2Service {
     }
 
     async fn get_measurements(&self, bucket: &str) -> Result<Vec<String>, AppError> {
-        let query = format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{bucket}\")");
+        let query = format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{}\")", bucket);
         let result = self.query(&query).await?;
         
         let mut measurements = Vec::new();
@@ -667,7 +693,7 @@ impl InfluxDBV2Service {
         if query_upper.starts_with("SHOW DATABASES") {
             Ok("buckets() |> rename(columns: {name: \"name\"}) |> keep(columns: [\"name\"])".to_string())
         } else if query_upper.starts_with("SHOW MEASUREMENTS") {
-            Ok(format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{bucket}\")"))
+            Ok(format!("import \"influxdata/influxdb/schema\"\nschema.measurements(bucket: \"{}\")", bucket))
         } else {
             // 简化版本：假设已经是 Flux 查询
             Ok(query.to_string())
@@ -808,4 +834,4 @@ mod tests {
             }
         }
     }
-} 
+}

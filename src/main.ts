@@ -6,6 +6,7 @@ import 'element-plus/dist/index.css'
 import './styles/dark-theme.css' // 引入自定义主题
 import App from './App.vue'
 import router from './router'
+import { useThemeStore } from './stores/themeStore'
 
 // 创建 Vue 应用实例
 const app = createApp(App)
@@ -13,6 +14,11 @@ const app = createApp(App)
 // 配置 Pinia 状态管理
 const pinia = createPinia()
 app.use(pinia)
+
+// 初始化主题
+const themeStore = useThemeStore()
+themeStore.initializeTheme()
+
 
 // 配置 Vue Query
 app.use(VueQueryPlugin)

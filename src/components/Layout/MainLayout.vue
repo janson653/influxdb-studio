@@ -1,431 +1,336 @@
 <template>
   <div class="main-layout">
-    <!-- 顶部工具栏 -->
-    <div class="top-toolbar">
-      <el-button v-if="!isQueryView" @click="goBackToEditor" size="small" text>
-        <el-icon><ArrowLeft /></el-icon>
-        返回
-      </el-button>
-      <div class="project-selector">
-        <span class="project-icon">DB</span>
-        <span>{{ activeConnection ? activeConnection.name : '未连接' }}</span>
-      </div>
-      <div class="toolbar-actions">
-        <el-button @click="gotoSettings" size="small">
-          <el-icon><Setting /></el-icon>
-          设置
-        </el-button>
-      </div>
-    </div>
+    <!-- Left Sidebar -->
+    <ResizablePanel
+      :initial-width="sidebarWidth"
+      :min-width="200"
+      :max-width="500"
+      :collapsed="sidebarCollapsed"
+      direction="right"
+      @resize="onSidebarResize"
+    >
+      <CollapsibleSidebar
+        :title="sidebarTitle"
+        :initial-collapsed="sidebarCollapsed"
+        storage-key="main-sidebar-collapsed"
+        @collapse="onSidebarCollapse"
+      >
+        <template #title>
+          <slot name="sidebar-title">{{ sidebarTitle }}</slot>
+        </template>
+        
+        <slot name="sidebar" />
+        
+        <template #footer>
+          <slot name="sidebar-footer" />
+        </template>
+      </CollapsibleSidebar>
+    </ResizablePanel>
 
-    <!-- 主容器 -->
-    <div class="main-container">
-      <!-- 左侧边栏 -->
-      <div class="sidebar">
-        <!-- 连接管理 -->
-        <div class="connection-section">
-          <div class="sidebar-header">
-            <span>连接管理</span>
-            <el-button @click="showAddDialog" size="small" circle>
-              <el-icon><Plus /></el-icon>
-            </el-button>
-          </div>
-          <div class="connection-list">
-            <div
-              v-for="conn in connections"
-              :key="conn.id"
-              class="connection-item"
-              :class="{ active: activeConnection && activeConnection.id === conn.id }"
-              @click="handleConnectionSelect(conn)"
-            >
-              <span class="conn-name">{{ conn.name }}</span>
-              <el-dropdown trigger="click" @command="handleCommand($event, conn)">
-                <span class="conn-actions">...</span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="connect">
-                      <el-icon><Link /></el-icon>连接
-                    </el-dropdown-item>
-                    <el-dropdown-item command="edit">
-                      <el-icon><Edit /></el-icon>编辑
-                    </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
-                      <el-icon><Delete /></el-icon>删除
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-          </div>
-        </div>
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Top Content Area -->
+      <div class="content-top" :style="{ height: `calc(100% - ${bottomPanelHeight}px)` }">
+        <TabbedInterface
+          :tabs="mainTabs"
+          :active-tab="activeMainTab"
+          storage-key="main-tabs-active"
+          @tab-select="onMainTabSelect"
+          @tab-close="onMainTabClose"
+          @tab-close-others="onMainTabCloseOthers"
+          @tab-close-all="onMainTabCloseAll"
+        >
+          <template #actions>
+            <slot name="main-tab-actions" />
+          </template>
+          
+          <template v-for="tab in mainTabs" :key="tab.id" #[tab.id]>
+            <slot :name="`main-tab-${tab.id}`" :tab="tab" />
+          </template>
+        </TabbedInterface>
+      </div>
 
-        <!-- 数据库浏览器 -->
-        <div class="database-explorer">
-          <div class="sidebar-header">
-            <span>数据库浏览器</span>
-            <el-button @click="refreshData" :loading="isLoading" size="small" circle>
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-          </div>
-          <div class="explorer-tree" @contextmenu.prevent="openContextMenu($event, null)">
-            <div v-if="!activeConnection || !isConnected" class="empty-state">
-              <el-empty description="未连接" :image-size="60" />
-            </div>
-            <el-tree
-              v-else
-              :data="databaseTreeData"
-              :props="{ children: 'children', label: 'name' }"
-              @node-click="handleDatabaseClick"
-            >
-              <template #default="{ node, data }">
-                <span class="tree-node" @contextmenu.prevent.stop="openContextMenu($event, data)">
-                  <el-icon v-if="data.type === 'database'"><Folder /></el-icon>
-                  <el-icon v-else><Document /></el-icon>
-                  <span>{{ node.label }}</span>
-                </span>
-              </template>
-            </el-tree>
-          </div>
+      <!-- Bottom Panel (Resizable) -->
+      <div class="bottom-panel-container" v-if="!bottomPanelCollapsed">
+        <div class="bottom-panel-resize-handle" @mousedown="startBottomResize" />
+        <div class="bottom-panel" :style="{ height: `${bottomPanelHeight}px` }">
+          <TabbedInterface
+            :tabs="bottomTabs"
+            :active-tab="activeBottomTab"
+            storage-key="bottom-tabs-active"
+            @tab-select="onBottomTabSelect"
+            @tab-close="onBottomTabClose"
+            @tab-close-others="onBottomTabCloseOthers"
+            @tab-close-all="onBottomTabCloseAll"
+          >
+            <template #actions>
+              <button
+                class="panel-toggle-button"
+                @click="toggleBottomPanel"
+                title="Collapse bottom panel"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 4l4 4H4l4-4z"/>
+                </svg>
+              </button>
+            </template>
+            
+            <template v-for="tab in bottomTabs" :key="tab.id" #[tab.id]>
+              <slot :name="`bottom-tab-${tab.id}`" :tab="tab" />
+            </template>
+          </TabbedInterface>
         </div>
       </div>
 
-      <!-- 右侧内容区域 -->
-      <div class="content-area">
-        <QueryEditor v-if="isQueryView" :key="editorKey" :initial-db="selectedDb" :initial-measurement="selectedMeasurement" />
-        <router-view v-else />
-      </div>
-    </div>
-
-    <!-- 底部状态栏 -->
-    <div class="status-bar">
-       <div class="status-item" v-if="activeConnection">
-        <el-tag :type="getConnectionStatusType()" size="small" effect="dark">
-          {{ getConnectionStatusText() }}
-        </el-tag>
-        <span>{{ activeConnection.config.host }}:{{ activeConnection.config.port }}</span>
-      </div>
-    </div>
-
-    <ConnectionDialog
-      v-model="connectionDialogVisible"
-      :connection="editingConnection"
-      @save="handleSaveConnection"
-    />
-
-    <!-- 右键上下文菜单 -->
-    <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.top, left: contextMenu.left }">
-      <div v-if="contextMenu.node?.type === 'database'">
-        <div class="context-menu-item" @click="handleNewTable">新建表</div>
-        <div class="context-menu-item" @click="handleDeleteDatabase">删除库</div>
-      </div>
-      <div v-else-if="contextMenu.node?.type === 'measurement'">
-        <div class="context-menu-item" @click="handleDeleteTable">删除表</div>
-      </div>
-      <div v-else>
-        <div class="context-menu-item" @click="handleNewDatabase">新建库</div>
+      <!-- Bottom Panel Collapsed State -->
+      <div v-else class="bottom-panel-collapsed">
+        <button
+          class="panel-expand-button"
+          @click="toggleBottomPanel"
+          title="Expand bottom panel"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4 8l4-4 4 4H4z"/>
+          </svg>
+          <span>{{ bottomTabs.length }} panel{{ bottomTabs.length !== 1 ? 's' : '' }}</span>
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, reactive } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-  Refresh, Folder, Document, Setting, Plus, Link, Edit, Delete, ArrowLeft
-} from '@element-plus/icons-vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useConnectionStore } from '../../stores/connectionStore';
-import type { ConnectionProfile } from '../../types/influxdb';
-import ConnectionDialog from '../Connection/ConnectionDialog.vue';
-import QueryEditor from '../../views/QueryEditor.vue';
+import { ref, onMounted, onUnmounted } from 'vue'
+import ResizablePanel from './ResizablePanel.vue'
+import CollapsibleSidebar from './CollapsibleSidebar.vue'
+import TabbedInterface, { type Tab } from './TabbedInterface.vue'
 
-const router = useRouter();
-const route = useRoute();
-const connectionStore = useConnectionStore();
+interface Props {
+  sidebarTitle?: string
+  mainTabs?: Tab[]
+  bottomTabs?: Tab[]
+  activeMainTab?: string
+  activeBottomTab?: string
+}
 
-const isLoading = ref(false);
-const databaseTreeData = ref<any[]>([]);
-const connectionDialogVisible = ref(false);
-const editingConnection = ref<ConnectionProfile | null>(null);
-const selectedDb = ref('');
-const selectedMeasurement = ref('');
-const editorKey = ref(0);
+// const props = withDefaults(defineProps<Props>(), {
+//   sidebarTitle: 'Explorer',
+//   mainTabs: () => [],
+//   bottomTabs: () => [],
+//   activeMainTab: '',
+//   activeBottomTab: ''
+// })
 
-const contextMenu = reactive({
-  visible: false,
-  top: '0px',
-  left: '0px',
-  node: null as any,
-});
+const emit = defineEmits<{
+  'sidebar-resize': [width: number]
+  'sidebar-collapse': [collapsed: boolean]
+  'main-tab-select': [tabId: string]
+  'main-tab-close': [tabId: string]
+  'main-tab-close-others': [tabId: string]
+  'main-tab-close-all': []
+  'bottom-tab-select': [tabId: string]
+  'bottom-tab-close': [tabId: string]
+  'bottom-tab-close-others': [tabId: string]
+  'bottom-tab-close-all': []
+  'bottom-panel-toggle': [collapsed: boolean]
+}>()
 
-const connections = computed(() => connectionStore.connections);
-const activeConnection = computed(() => connectionStore.activeConnectionConfig);
-const connectionStatus = computed(() => activeConnection.value ? connectionStore.connectionStatus[activeConnection.value.id] : null);
-const isConnected = computed(() => connectionStatus.value?.status === 'connected');
-const isQueryView = computed(() => route.path === '/');
+// Sidebar state
+const sidebarWidth = ref(300)
+const sidebarCollapsed = ref(false)
 
-const gotoSettings = () => router.push('/settings');
-const goBackToEditor = () => router.push('/');
+// Bottom panel state
+const bottomPanelHeight = ref(200)
+const bottomPanelCollapsed = ref(false)
+const isResizingBottom = ref(false)
+const startY = ref(0)
+const startHeight = ref(0)
 
-const showAddDialog = () => {
-  editingConnection.value = null;
-  connectionDialogVisible.value = true;
-};
-
-const handleSaveConnection = (conn: ConnectionProfile) => {
-  connectionStore.addConnection(conn);
-  ElMessage.success('连接已保存');
-  connectionDialogVisible.value = false;
-};
-
-const handleConnectionSelect = (conn: ConnectionProfile) => {
-  connectionStore.setActiveConnection(conn.id);
-  if (!isConnected.value) {
-    connectTo(conn.id);
-  }
-};
-
-const handleCommand = (command: string, conn: ConnectionProfile) => {
-  switch (command) {
-    case 'connect':
-      connectTo(conn.id);
-      break;
-    case 'edit':
-      editingConnection.value = { ...conn };
-      connectionDialogVisible.value = true;
-      break;
-    case 'delete':
-      deleteConnection(conn.id);
-      break;
-  }
-};
-
-const connectTo = async (id: string) => {
-  try {
-    const success = await connectionStore.connectTo(id);
-    if (success) ElMessage.success('连接成功');
-    else ElMessage.error('连接失败');
-  } catch (error) {
-    ElMessage.error(`连接失败: ${error}`);
-  }
-};
-
-const deleteConnection = async (id: string) => {
-  await ElMessageBox.confirm('确定要删除这个连接吗？', '确认删除', { type: 'warning' });
-  connectionStore.removeConnection(id);
-  ElMessage.success('连接已删除');
-};
-
-const refreshData = async () => {
-  if (!isConnected.value) return;
-  isLoading.value = true;
-  try {
-    await loadDatabases();
-    ElMessage.success('数据已刷新');
-  } catch (error) {
-    ElMessage.error('刷新失败');
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const loadDatabases = async () => {
-  const backendId = connectionStatus.value?.backendConnectionId;
-  if (!backendId) return;
-  const response = await invoke('get_databases', { connectionId: backendId }) as any;
-  databaseTreeData.value = response.success ? response.data.map((db: string) => ({ id: db, name: db, type: 'database', children: [] })) : [];
-};
-
-const handleDatabaseClick = async (data: any) => {
-  selectedDb.value = data.type === 'database' ? data.name : data.database;
-  selectedMeasurement.value = data.type === 'measurement' ? data.name : '';
-  editorKey.value++; // Force re-render of QueryEditor
-  if (data.type === 'database') await loadMeasurements(data.name);
-  router.push('/');
-};
-
-const loadMeasurements = async (db: string) => {
-  const backendId = connectionStatus.value?.backendConnectionId;
-  if (!backendId) return;
-  const response = await invoke('get_measurements', { connectionId: backendId, database: db }) as any;
-  if (response.success) {
-    const node = databaseTreeData.value.find(d => d.name === db);
-    if (node) node.children = response.data.map((m: string) => ({ id: `${db}.${m}`, name: m, type: 'measurement', database: db }));
-  }
-};
-
-const getConnectionStatusType = () => {
-  if (!connectionStatus.value) return 'info';
-  return { connected: 'success', connecting: 'warning', error: 'danger', disconnected: 'info' }[connectionStatus.value.status] || 'info';
-};
-
-const getConnectionStatusText = () => {
-  if (!connectionStatus.value) return '未连接';
-  return { connected: '已连接', connecting: '连接中', error: '错误', disconnected: '未连接' }[connectionStatus.value.status] || '未连接';
-};
-
-watch(isConnected, (connected) => {
-  if (connected) loadDatabases();
-  else databaseTreeData.value = [];
-});
-
+// Load persisted state
 onMounted(() => {
-  // 检查是否有保存的连接配置
-  if (connections.value.length === 0) {
-    // 首次启动，显示欢迎界面
-    showWelcomeDialog();
-  } else if (isConnected.value) {
-    // 已有连接且已连接，加载数据
-    loadDatabases();
+  const savedSidebarWidth = localStorage.getItem('main-layout-sidebar-width')
+  if (savedSidebarWidth) {
+    sidebarWidth.value = parseInt(savedSidebarWidth)
   }
-  // 其他情况（有连接但未连接）由用户手动操作
-  document.addEventListener('click', closeContextMenu);
-});
+  
+  const savedBottomHeight = localStorage.getItem('main-layout-bottom-height')
+  if (savedBottomHeight) {
+    bottomPanelHeight.value = parseInt(savedBottomHeight)
+  }
+  
+  const savedBottomCollapsed = localStorage.getItem('main-layout-bottom-collapsed')
+  if (savedBottomCollapsed) {
+    bottomPanelCollapsed.value = JSON.parse(savedBottomCollapsed)
+  }
+})
+
+// Sidebar handlers
+const onSidebarResize = (width: number) => {
+  sidebarWidth.value = width
+  localStorage.setItem('main-layout-sidebar-width', width.toString())
+  emit('sidebar-resize', width)
+}
+
+const onSidebarCollapse = (collapsed: boolean) => {
+  sidebarCollapsed.value = collapsed
+  emit('sidebar-collapse', collapsed)
+}
+
+// Main tab handlers
+const onMainTabSelect = (tabId: string) => {
+  emit('main-tab-select', tabId)
+}
+
+const onMainTabClose = (tabId: string) => {
+  emit('main-tab-close', tabId)
+}
+
+const onMainTabCloseOthers = (tabId: string) => {
+  emit('main-tab-close-others', tabId)
+}
+
+const onMainTabCloseAll = () => {
+  emit('main-tab-close-all')
+}
+
+// Bottom tab handlers
+const onBottomTabSelect = (tabId: string) => {
+  emit('bottom-tab-select', tabId)
+}
+
+const onBottomTabClose = (tabId: string) => {
+  emit('bottom-tab-close', tabId)
+}
+
+const onBottomTabCloseOthers = (tabId: string) => {
+  emit('bottom-tab-close-others', tabId)
+}
+
+const onBottomTabCloseAll = () => {
+  emit('bottom-tab-close-all')
+}
+
+// Bottom panel resize handlers
+const startBottomResize = (event: MouseEvent) => {
+  isResizingBottom.value = true
+  startY.value = event.clientY
+  startHeight.value = bottomPanelHeight.value
+  
+  document.addEventListener('mousemove', handleBottomResize)
+  document.addEventListener('mouseup', stopBottomResize)
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+}
+
+const handleBottomResize = (event: MouseEvent) => {
+  if (!isResizingBottom.value) return
+  
+  const deltaY = startY.value - event.clientY
+  const newHeight = Math.max(100, Math.min(600, startHeight.value + deltaY))
+  
+  bottomPanelHeight.value = newHeight
+  localStorage.setItem('main-layout-bottom-height', newHeight.toString())
+}
+
+const stopBottomResize = () => {
+  isResizingBottom.value = false
+  document.removeEventListener('mousemove', handleBottomResize)
+  document.removeEventListener('mouseup', stopBottomResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
+
+const toggleBottomPanel = () => {
+  bottomPanelCollapsed.value = !bottomPanelCollapsed.value
+  localStorage.setItem('main-layout-bottom-collapsed', JSON.stringify(bottomPanelCollapsed.value))
+  emit('bottom-panel-toggle', bottomPanelCollapsed.value)
+}
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeContextMenu);
-});
-
-// 添加欢迎对话框
-const showWelcomeDialog = () => {
-  ElMessageBox.alert(
-    '欢迎使用 InfluxDB Studio！\n\n请先配置您的 InfluxDB 连接。',
-    '欢迎',
-    {
-      confirmButtonText: '添加连接',
-      type: 'info',
-      callback: () => {
-        showAddDialog();
-      }
-    }
-  );
-};
-
-// --- 右键菜单方法 ---
-const openContextMenu = (event: MouseEvent, node: any) => {
-  contextMenu.visible = true;
-  contextMenu.top = `${event.clientY}px`;
-  contextMenu.left = `${event.clientX}px`;
-  contextMenu.node = node;
-};
-
-const closeContextMenu = () => {
-  contextMenu.visible = false;
-};
-
-const handleNewDatabase = async () => {
-  closeContextMenu();
-  try {
-    const { value } = await ElMessageBox.prompt('请输入新数据库的名称:', '新建库', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
-    });
-    const backendId = connectionStatus.value?.backendConnectionId;
-    if (!backendId) return;
-    const response = await invoke('create_database', { connectionId: backendId, database: value }) as any;
-    if (response.success) {
-      ElMessage.success('数据库创建成功');
-      await loadDatabases();
-    } else {
-      ElMessage.error(response.error || '创建失败');
-    }
-  } catch { /* 用户取消 */ }
-};
-
-const handleDeleteDatabase = async () => {
-  const dbName = contextMenu.node.name;
-  closeContextMenu();
-  try {
-    await ElMessageBox.confirm(`确定要删除数据库 "${dbName}" 吗？此操作不可逆！`, '确认删除', { type: 'warning' });
-    const backendId = connectionStatus.value?.backendConnectionId;
-    if (!backendId) return;
-    const response = await invoke('drop_database', { connectionId: backendId, database: dbName }) as any;
-    if (response.success) {
-      ElMessage.success('数据库删除成功');
-      await loadDatabases();
-    } else {
-      ElMessage.error(response.error || '删除失败');
-    }
-  } catch { /* 用户取消 */ }
-};
-
-const handleNewTable = async () => {
-  const dbName = contextMenu.node.name;
-  closeContextMenu();
-  try {
-    const { value } = await ElMessageBox.prompt('请输入新表的名称:', '新建表', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
-    });
-    const newQuery = `INSERT ${value},tag_key=tag_value field_key="field_value"`;
-    router.push({ path: '/', query: { db: dbName, measurement: value, query: newQuery } });
-    ElMessage.info('请在查询编辑器中执行 INSERT 语句以创建表和写入数据。');
-  } catch { /* 用户取消 */ }
-};
-
-const handleDeleteTable = async () => {
-  const { database, name } = contextMenu.node;
-  closeContextMenu();
-  try {
-    await ElMessageBox.confirm(`确定要删除表 "${name}" 吗？`, '确认删除', { type: 'warning' });
-    const backendId = connectionStatus.value?.backendConnectionId;
-    if (!backendId) return;
-    const query = `DROP MEASUREMENT "${name}"`;
-    const response = await invoke('execute_query', { connectionId: backendId, database, query }) as any;
-    if (response.success) {
-      ElMessage.success('表删除成功');
-      await loadMeasurements(database);
-    } else {
-      ElMessage.error(response.error || '删除失败');
-    }
-  } catch { /* 用户取消 */ }
-};
+  if (isResizingBottom.value) {
+    stopBottomResize()
+  }
+})
 </script>
 
 <style scoped>
-.main-layout { display: flex; flex-direction: column; height: 100vh; background: #2b2b2b; }
-.top-toolbar { height: 40px; background: #3c3f41; border-bottom: 1px solid #555; display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
-.project-selector { display: flex; align-items: center; gap: 8px; padding: 5px 10px; background: #4c5052; border-radius: 4px; margin-left: 10px; }
-.project-icon { width: 20px; height: 20px; background: #6a8759; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; }
-.toolbar-actions { margin-left: auto; }
-.main-container { display: flex; flex: 1; overflow: hidden; }
-.sidebar { width: 240px; background: #3c3f41; border-right: 1px solid #555; display: flex; flex-direction: column; }
-.sidebar-header { padding: 10px; border-bottom: 1px solid #555; display: flex; justify-content: space-between; align-items: center; }
-.connection-section { border-bottom: 1px solid #555; }
-.connection-list { padding: 5px; max-height: 200px; overflow-y: auto; }
-.connection-item { display: flex; justify-content: space-between; padding: 8px 10px; cursor: pointer; border-radius: 3px; }
-.connection-item:hover { background: #4c5052; }
-.connection-item.active { background: #6a8759; color: white; }
-.conn-actions { cursor: pointer; padding: 0 5px; }
-.database-explorer { flex: 1; display: flex; flex-direction: column; }
-.explorer-tree { flex: 1; overflow-y: auto; padding: 5px; }
-.tree-node { display: flex; align-items: center; gap: 5px; }
-.empty-state { padding: 20px; text-align: center; }
-.content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.status-bar { height: 25px; background: #3c3f41; border-top: 1px solid #555; display: flex; align-items: center; padding: 0 10px; font-size: 12px; color: #808080; }
-.status-item { margin-right: 20px; display: flex; align-items: center; gap: 8px; }
-
-.context-menu {
-  position: fixed;
-  z-index: 1000;
-  background-color: #4c5052;
-  border: 1px solid #555;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
-  padding: 5px 0;
+.main-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--geek-bg-primary);
+  color: var(--geek-text-primary);
 }
 
-.context-menu-item {
-  padding: 8px 15px;
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content-top {
+  flex: 1;
+  overflow: hidden;
+}
+
+.bottom-panel-container {
+  position: relative;
+  border-top: 1px solid var(--geek-border);
+}
+
+.bottom-panel-resize-handle {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  z-index: 10;
+  transition: background-color 0.2s ease;
+}
+
+.bottom-panel-resize-handle:hover {
+  background-color: var(--geek-accent-primary);
+}
+
+.bottom-panel {
+  background: var(--geek-bg-secondary);
+}
+
+.bottom-panel-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  background: var(--geek-bg-secondary);
+  border-top: 1px solid var(--geek-border);
+}
+
+.panel-toggle-button,
+.panel-expand-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--geek-text-secondary);
   cursor: pointer;
-  font-size: 14px;
-  color: #a9b7c6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.2s ease;
 }
 
-.context-menu-item:hover {
-  background-color: #6a8759;
-  color: white;
+.panel-toggle-button:hover,
+.panel-expand-button:hover {
+  background: var(--geek-bg-hover);
+  color: var(--geek-text-primary);
+}
+
+.panel-expand-button {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 </style>

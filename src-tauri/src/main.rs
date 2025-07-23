@@ -7,6 +7,9 @@ mod commands;
 mod models;
 mod influxdb;
 mod error;
+mod database;
+mod measurement;
+mod influxdb_trait;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -30,6 +33,9 @@ fn main() {
             commands::create_database,
             commands::drop_database,
             commands::get_measurements,
+            commands::get_measurement_info,
+            commands::create_measurement,
+            commands::delete_measurement,
             commands::get_app_version
         ])
         .run(tauri::generate_context!())
