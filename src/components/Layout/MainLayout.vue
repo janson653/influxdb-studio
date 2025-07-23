@@ -10,13 +10,13 @@
       @resize="onSidebarResize"
     >
       <CollapsibleSidebar
-        :title="sidebarTitle"
+        :title="props.sidebarTitle"
         :initial-collapsed="sidebarCollapsed"
         storage-key="main-sidebar-collapsed"
         @collapse="onSidebarCollapse"
       >
         <template #title>
-          <slot name="sidebar-title">{{ sidebarTitle }}</slot>
+          <slot name="sidebar-title">{{ props.sidebarTitle }}</slot>
         </template>
         
         <slot name="sidebar" />
@@ -32,8 +32,8 @@
       <!-- Top Content Area -->
       <div class="content-top" :style="{ height: `calc(100% - ${bottomPanelHeight}px)` }">
         <TabbedInterface
-          :tabs="mainTabs"
-          :active-tab="activeMainTab"
+          :tabs="props.mainTabs"
+          :active-tab="props.activeMainTab"
           storage-key="main-tabs-active"
           @tab-select="onMainTabSelect"
           @tab-close="onMainTabClose"
@@ -44,7 +44,7 @@
             <slot name="main-tab-actions" />
           </template>
           
-          <template v-for="tab in mainTabs" :key="tab.id" #[tab.id]>
+          <template v-for="tab in props.mainTabs" :key="tab.id" #[tab.id]>
             <slot :name="`main-tab-${tab.id}`" :tab="tab" />
           </template>
         </TabbedInterface>
@@ -55,8 +55,8 @@
         <div class="bottom-panel-resize-handle" @mousedown="startBottomResize" />
         <div class="bottom-panel" :style="{ height: `${bottomPanelHeight}px` }">
           <TabbedInterface
-            :tabs="bottomTabs"
-            :active-tab="activeBottomTab"
+            :tabs="props.bottomTabs"
+            :active-tab="props.activeBottomTab"
             storage-key="bottom-tabs-active"
             @tab-select="onBottomTabSelect"
             @tab-close="onBottomTabClose"
@@ -75,7 +75,7 @@
               </button>
             </template>
             
-            <template v-for="tab in bottomTabs" :key="tab.id" #[tab.id]>
+            <template v-for="tab in props.bottomTabs" :key="tab.id" #[tab.id]>
               <slot :name="`bottom-tab-${tab.id}`" :tab="tab" />
             </template>
           </TabbedInterface>
@@ -92,7 +92,7 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M4 8l4-4 4 4H4z"/>
           </svg>
-          <span>{{ bottomTabs.length }} panel{{ bottomTabs.length !== 1 ? 's' : '' }}</span>
+          <span>{{ props.bottomTabs.length }} panel{{ props.bottomTabs.length !== 1 ? 's' : '' }}</span>
         </button>
       </div>
     </div>
@@ -105,21 +105,19 @@ import ResizablePanel from './ResizablePanel.vue'
 import CollapsibleSidebar from './CollapsibleSidebar.vue'
 import TabbedInterface, { type Tab } from './TabbedInterface.vue'
 
-interface Props {
+const props = withDefaults(defineProps<{
   sidebarTitle?: string
   mainTabs?: Tab[]
   bottomTabs?: Tab[]
   activeMainTab?: string
   activeBottomTab?: string
-}
-
-// const props = withDefaults(defineProps<Props>(), {
-//   sidebarTitle: 'Explorer',
-//   mainTabs: () => [],
-//   bottomTabs: () => [],
-//   activeMainTab: '',
-//   activeBottomTab: ''
-// })
+}>(), {
+  sidebarTitle: 'Explorer',
+  mainTabs: () => [],
+  bottomTabs: () => [],
+  activeMainTab: '',
+  activeBottomTab: ''
+})
 
 const emit = defineEmits<{
   'sidebar-resize': [width: number]
