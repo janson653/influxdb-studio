@@ -36,6 +36,10 @@ export const useDatabaseStore = defineStore('database', {
     getSelectedDatabase: (state) => state.selectedDatabase,
     isLoading: (state) => state.loading,
     getError: (state) => state.error,
+    isConnected: () => {
+      const connectionStore = useConnectionStore();
+      return connectionStore.isConnected;
+    },
   },
 
   actions: {

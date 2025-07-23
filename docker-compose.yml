@@ -1,65 +1,62 @@
 version: '3.8'
 
 services:
-  # InfluxDB 1.0 版本
-  influxdb1:
+  # InfluxDB v1.x 服务
+  influxdb-v1:
     image: influxdb:1.8
-    container_name: influxdb1
+    container_name: influxdb-v1-test
     ports:
       - "8086:8086"
-      - "8083:8083"  # 1.0版本的Web管理界面
-    volumes:
-      - influxdb1-data:/var/lib/influxdb
-      - influxdb1-config:/etc/influxdb
     environment:
       - INFLUXDB_HTTP_AUTH_ENABLED=false
-      - INFLUXDB_ADMIN_ENABLED=true
-      - INFLUXDB_ADMIN_USER=admin
-      - INFLUXDB_ADMIN_PASSWORD=password123
-    restart: unless-stopped
+      - INFLUXDB_ADMIN_ENABLED=false
+      - INFLUXDB_HTTP_FLUX_ENABLED=false
+    volumes:
+      - influxdb-v1-data:/var/lib/influxdb
+      - ./scripts/init-influxdb.sh:/docker-entrypoint-initdb.d/init-influxdb.sh
     networks:
       - influxdb-network
+    restart: unless-stopped
 
-  # InfluxDB 2.0 版本
-  influxdb2:
+  # InfluxDB v2.x 服务 (可选)
+  influxdb-v2:
     image: influxdb:2.7
-    container_name: influxdb2
+    container_name: influxdb-v2-test
     ports:
-      - "8087:8086"  # 使用不同端口避免冲突
-    volumes:
-      - influxdb2-data:/var/lib/influxdb2
-      - influxdb2-config:/etc/influxdb2
+      - "8087:8086"
     environment:
-      # 初始化设置
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=password123
-      - DOCKER_INFLUXDB_INIT_ORG=myorg
-      - DOCKER_INFLUXDB_INIT_BUCKET=mybucket
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token
-    restart: unless-stopped
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=test-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=test-bucket
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=test-token
+    volumes:
+      - influxdb-v2-data:/var/lib/influxdb2
     networks:
       - influxdb-network
+    restart: unless-stopped
 
-  # 可选：添加Grafana用于数据可视化
+  # Grafana (可选，用于数据可视化)
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: grafana-test
     ports:
       - "3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
-    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./scripts/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
     networks:
       - influxdb-network
+    restart: unless-stopped
+    depends_on:
+      - influxdb-v1
 
 volumes:
-  influxdb1-data:
-  influxdb1-config:
-  influxdb2-data:
-  influxdb2-config:
+  influxdb-v1-data:
+  influxdb-v2-data:
   grafana-data:
 
 networks:

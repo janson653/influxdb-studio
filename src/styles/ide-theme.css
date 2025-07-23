@@ -1,78 +1,71 @@
 /* InfluxDB Studio IDE 浅色主题 */
 
+/* 修复配色问题 - 提高对比度 */
 :root {
-  /* 主色调 - 浅色系 */
-  --ide-bg-primary: #ffffff;
-  --ide-bg-secondary: #f8f9fa;
-  --ide-bg-tertiary: #e9ecef;
-  --ide-bg-hover: #e3f2fd;
-  --ide-bg-highlight: #fff3e0;
+  /* 主色调 - 使用更深的蓝色 */
+  --ide-bg-primary: #0f0f1a;
+  --ide-bg-secondary: #1a1a2e;
+  --ide-bg-tertiary: #2d2d44;
+  --ide-bg-hover: #3a3a5a;
+  --ide-bg-highlight: #4a4a6a;
   
-  /* 文字颜色 */
-  --ide-text-primary: #2c3e50;
-  --ide-text-secondary: #6c757d;
-  --ide-text-muted: #adb5bd;
+  /* 文字颜色 - 提高对比度 */
+  --ide-text-primary: #ffffff;
+  --ide-text-secondary: #e0e0ff;
+  --ide-text-tertiary: #b8b8d1;
   --ide-text-inverse: #ffffff;
   
-  /* 边框颜色 */
-  --ide-border: #dee2e6;
-  --ide-border-light: #e9ecef;
-  --ide-border-dark: #adb5bd;
+  /* 边框颜色 - 更明显的边框 */
+  --ide-border: #4a4a6a;
+  --ide-border-light: #5a5a7a;
+  --ide-border-dark: #3a3a5a;
   
-  /* 强调色 */
-  --ide-accent-primary: #007bff;
-  --ide-accent-secondary: #0056b3;
-  --ide-accent-success: #28a745;
-  --ide-accent-warning: #ffc107;
-  --ide-accent-danger: #dc3545;
-  --ide-accent-info: #17a2b8;
+  /* 强调色 - 保持原有的强调色 */
+  --ide-accent-primary: #7c3aed;
+  --ide-accent-secondary: #8b5cf6;
+  --ide-accent-success: #10b981;
+  --ide-accent-warning: #f59e0b;
+  --ide-accent-error: #ef4444;
+  --ide-accent-info: #3b82f6;
+  --ide-accent-purple: #8b5cf6;
+  --ide-accent-orange: #f97316;
+  --ide-accent-green: #22c55e;
+  --ide-accent-yellow: #eab308;
+  --ide-accent-cyan: #06b6d4;
+  --ide-accent-danger: #dc2626;
   
-  /* 功能色 */
-  --ide-success: #28a745;
-  --ide-warning: #ffc107;
-  --ide-error: #dc3545;
-  --ide-info: #17a2b8;
-  
-  /* 特殊强调色 */
-  --ide-accent-blue: #007bff;
-  --ide-accent-green: #28a745;
-  --ide-accent-orange: #fd7e14;
-  --ide-accent-purple: #6f42c1;
-  --ide-accent-red: #dc3545;
-  --ide-accent-yellow: #ffc107;
-  --ide-accent-cyan: #17a2b8;
-  
-  /* 阴影 */
-  --ide-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --ide-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --ide-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --ide-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
-  
-  /* 圆角 */
-  --ide-border-radius: 4px;
-  --ide-border-radius-lg: 8px;
-  --ide-border-radius-xl: 12px;
-  
-  /* 间距 */
+  /* 间距和尺寸 */
   --ide-spacing-xs: 4px;
   --ide-spacing-sm: 8px;
   --ide-spacing-md: 16px;
   --ide-spacing-lg: 24px;
   --ide-spacing-xl: 32px;
   
-  /* 字体 */
-  --ide-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --ide-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+  /* 字体大小 */
   --ide-font-size-xs: 11px;
   --ide-font-size-sm: 12px;
   --ide-font-size-md: 14px;
   --ide-font-size-lg: 16px;
   --ide-font-size-xl: 18px;
   
+  /* 字体 */
+  --ide-font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  --ide-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  
+  /* 圆角 */
+  --ide-border-radius: 6px;
+  --ide-border-radius-lg: 8px;
+  --ide-border-radius-xl: 12px;
+  
+  /* 阴影 */
+  --ide-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ide-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --ide-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3);
+  
   /* 过渡动画 */
   --ide-transition-fast: 0.15s ease;
-  --ide-transition-normal: 0.3s ease;
-  --ide-transition-slow: 0.5s ease;
+  --ide-transition-normal: 0.25s ease;
+  --ide-transition-slow: 0.35s ease;
 }
 
 /* 全局样式重置 */
@@ -83,7 +76,7 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: var(--ide-font-family);
+  font-family: var(--ide-font-sans);
   font-size: var(--ide-font-size-md);
   line-height: 1.5;
   color: var(--ide-text-primary);
@@ -118,62 +111,78 @@ body {
   justify-content: center;
   gap: var(--ide-spacing-xs);
   padding: var(--ide-spacing-sm) var(--ide-spacing-md);
-  font-family: var(--ide-font-family);
+  font-family: var(--ide-font-sans);
   font-size: var(--ide-font-size-sm);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.5;
-  color: var(--ide-text-primary);
-  background-color: var(--ide-bg-secondary);
   border: 1px solid var(--ide-border);
   border-radius: var(--ide-border-radius);
+  background-color: var(--ide-bg-primary);
+  color: var(--ide-text-primary);
   cursor: pointer;
   transition: all var(--ide-transition-fast);
   text-decoration: none;
+  white-space: nowrap;
   user-select: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .ide-btn:hover {
-  background-color: var(--ide-bg-tertiary);
-  border-color: var(--ide-border-dark);
+  background-color: var(--ide-bg-hover);
+  border-color: var(--ide-border-light);
+  color: var(--ide-text-primary);
   transform: translateY(-1px);
   box-shadow: var(--ide-shadow-sm);
+  font-weight: 700;
 }
 
 .ide-btn:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 .ide-btn.primary {
   background-color: var(--ide-accent-primary);
-  border-color: var(--ide-accent-primary);
+  border-color: var(--ide-accent-secondary);
   color: var(--ide-text-inverse);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.3);
 }
 
 .ide-btn.primary:hover {
   background-color: var(--ide-accent-secondary);
-  border-color: var(--ide-accent-secondary);
+  border-color: var(--ide-accent-primary);
+  color: var(--ide-text-inverse);
+  box-shadow: 0 4px 8px rgba(124, 58, 237, 0.4);
 }
 
 .ide-btn.secondary {
-  background-color: var(--ide-bg-tertiary);
+  background-color: var(--ide-bg-secondary);
   border-color: var(--ide-border);
   color: var(--ide-text-primary);
+  font-weight: 600;
 }
 
 .ide-btn.secondary:hover {
   background-color: var(--ide-bg-hover);
-  border-color: var(--ide-border-dark);
+  border-color: var(--ide-border-light);
+  color: var(--ide-text-primary);
+  font-weight: 700;
 }
 
 .ide-btn.danger {
-  background-color: var(--ide-accent-danger);
+  background-color: var(--ide-accent-error);
   border-color: var(--ide-accent-danger);
   color: var(--ide-text-inverse);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .ide-btn.danger:hover {
-  background-color: #c82333;
-  border-color: #c82333;
+  background-color: var(--ide-accent-danger);
+  border-color: var(--ide-accent-error);
+  color: var(--ide-text-inverse);
 }
 
 .ide-btn.small {
@@ -187,39 +196,52 @@ body {
 }
 
 .ide-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
 }
 
+.ide-btn:disabled:hover {
+  background-color: var(--ide-bg-primary);
+  border-color: var(--ide-border);
+  color: var(--ide-text-secondary);
+  font-weight: 600;
+}
+
 /* 输入框样式 */
 .ide-input {
-  display: block;
   width: 100%;
   padding: var(--ide-spacing-sm) var(--ide-spacing-md);
-  font-family: var(--ide-font-family);
+  font-family: var(--ide-font-sans);
   font-size: var(--ide-font-size-sm);
   line-height: 1.5;
-  color: var(--ide-text-primary);
-  background-color: var(--ide-bg-primary);
   border: 1px solid var(--ide-border);
   border-radius: var(--ide-border-radius);
+  background-color: var(--ide-bg-primary);
+  color: var(--ide-text-primary);
   transition: all var(--ide-transition-fast);
+  outline: none;
+  font-weight: 500;
 }
 
 .ide-input:focus {
-  outline: none;
   border-color: var(--ide-accent-primary);
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  background-color: var(--ide-bg-secondary);
+  color: var(--ide-text-primary);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+  font-weight: 600;
 }
 
 .ide-input:hover {
-  border-color: var(--ide-border-dark);
+  border-color: var(--ide-border-light);
+  background-color: var(--ide-bg-secondary);
 }
 
 .ide-input::placeholder {
-  color: var(--ide-text-muted);
+  color: var(--ide-text-secondary);
+  opacity: 1;
+  font-weight: 400;
 }
 
 /* 标签页样式 */
@@ -234,7 +256,7 @@ body {
   align-items: center;
   gap: var(--ide-spacing-xs);
   padding: var(--ide-spacing-sm) var(--ide-spacing-md);
-  font-family: var(--ide-font-family);
+  font-family: var(--ide-font-sans);
   font-size: var(--ide-font-size-sm);
   color: var(--ide-text-secondary);
   background-color: transparent;

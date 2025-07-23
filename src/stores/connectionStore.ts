@@ -54,6 +54,32 @@ export const useConnectionStore = defineStore('connection', () => {
     )
   })
 
+  const isConnected = computed(() => {
+    // 检查是否有活跃连接
+    if (!activeConnection.value) {
+      console.log('[Store] isConnected: 没有活跃连接')
+      return false
+    }
+    
+    // 检查连接状态
+    const status = connectionStatus.value[activeConnection.value]
+    if (!status) {
+      console.log('[Store] isConnected: 没有连接状态信息')
+      return false
+    }
+    
+    const connected = status.status === 'connected'
+    console.log('[Store] isConnected:', {
+      activeConnection: activeConnection.value,
+      status: status.status,
+      connected
+    })
+    
+    return connected
+  })
+
+  const activeConnectionId = computed(() => activeConnection.value)
+
   // 动作
   const addConnection = (profile: ConnectionProfile) => {
     console.log(`[Store] Adding or updating connection: ${profile.name} (${profile.id})`)
@@ -326,6 +352,8 @@ export const useConnectionStore = defineStore('connection', () => {
     // 计算属性
     activeConnectionConfig,
     connectedConnections,
+    isConnected,
+    activeConnectionId,
     
     // 动作
     addConnection,

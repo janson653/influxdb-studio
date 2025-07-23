@@ -371,7 +371,7 @@ const handleSubmit = async () => {
       id: form.id,
       name: form.name,
       version: form.version,
-      config,
+      config: JSON.parse(JSON.stringify(config)), // 确保是纯JSON对象
       created_at: props.connection?.created_at || Date.now(),
       updated_at: Date.now()
     }

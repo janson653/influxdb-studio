@@ -23,13 +23,6 @@
         >
           <span class="ide-icon ide-icon-plus"></span>
         </button>
-        <button 
-          class="ide-btn ide-btn-small" 
-          @click="showSettings = true"
-          title="设置"
-        >
-          <span class="ide-icon ide-icon-settings"></span>
-        </button>
       </div>
     </div>
 
@@ -90,7 +83,7 @@
             </span>
           </div>
           
-          <!-- 数据库操作菜单 -->
+          <!-- 数据库操作 -->
           <div class="tree-item-actions">
             <button 
               class="ide-btn ide-btn-small"
@@ -99,82 +92,35 @@
             >
               <span class="ide-icon ide-icon-play"></span>
             </button>
-            <button 
-              class="ide-btn ide-btn-small"
-              @click.stop="showDatabaseMenu(database)"
-              title="更多操作"
+          </div>
+          
+          <!-- 测量值列表 -->
+          <div v-if="expandedDatabases.has(database.name) && database.measurements" class="ide-tree-children">
+            <div 
+              v-for="measurement in database.measurements" 
+              :key="measurement.name"
+              class="ide-tree-item"
+              :class="{ 'selected': selectedMeasurement === measurement.name }"
+              @click="selectMeasurement(database.name, measurement.name)"
             >
-              ⋯
-            </button>
-          </div>
-        </div>
-        
-        <!-- 测量值列表 -->
-        <div 
-          v-for="database in filteredDatabases" 
-          :key="`${database.name}-measurements`"
-          class="ide-tree-children"
-          v-show="expandedDatabases.has(database.name)"
-        >
-          <div 
-            v-for="measurement in database.measurements" 
-            :key="measurement.name"
-            class="ide-tree-item measurement-item"
-            :class="{ 'selected': selectedMeasurement === measurement.name }"
-            @click="selectMeasurement(database.name, measurement.name)"
-          >
-            <div class="tree-item-content">
-              <span class="ide-tree-icon ide-icon-table"></span>
-              <span class="tree-item-name">{{ measurement.name }}</span>
-              <span class="tree-item-count" v-if="measurement.series_count">
-                ({{ measurement.series_count }})
-              </span>
-            </div>
-            
-            <div class="tree-item-actions">
-              <button 
-                class="ide-btn ide-btn-small"
-                @click.stop="queryMeasurement(database.name, measurement.name)"
-                title="查询数据"
-              >
-                <span class="ide-icon ide-icon-play"></span>
-              </button>
-              <button 
-                class="ide-btn ide-btn-small"
-                @click.stop="showMeasurementMenu(measurement)"
-                title="更多操作"
-              >
-                ⋯
-              </button>
+              <div class="tree-item-content">
+                <span class="ide-tree-icon ide-icon-table"></span>
+                <span class="tree-item-name">{{ measurement.name }}</span>
+              </div>
+              
+              <!-- 测量值操作 -->
+              <div class="tree-item-actions">
+                <button 
+                  class="ide-btn ide-btn-small"
+                  @click.stop="requestQuery(database.name, measurement.name)"
+                  title="查询数据"
+                >
+                  <span class="ide-icon ide-icon-play"></span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- 上下文菜单 -->
-    <div 
-      v-if="showContextMenu" 
-      class="context-menu"
-      :style="contextMenuStyle"
-      @click.stop
-    >
-      <div class="context-menu-item" @click="handleContextMenuAction('refresh')">
-        <span class="ide-icon ide-icon-refresh"></span>
-        刷新
-      </div>
-      <div class="context-menu-item" @click="handleContextMenuAction('query')">
-        <span class="ide-icon ide-icon-play"></span>
-        查询
-      </div>
-      <div class="ide-divider"></div>
-      <div class="context-menu-item" @click="handleContextMenuAction('edit')">
-        <span class="ide-icon ide-icon-settings"></span>
-        编辑
-      </div>
-      <div class="context-menu-item danger" @click="handleContextMenuAction('delete')">
-        <span class="ide-icon ide-icon-close"></span>
-        删除
       </div>
     </div>
 
@@ -188,7 +134,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useDatabaseStore } from '../../stores/databaseStore'
 import { useMeasurementStore } from '../../stores/measurementStore'
 import CreateDatabaseDialog from './Dialog/CreateDatabaseDialog.vue'
@@ -220,10 +166,6 @@ const searchQuery = ref('')
 const isLoading = ref(false)
 const expandedDatabases = ref(new Set<string>())
 const showCreateDialog = ref(false)
-const showSettings = ref(false)
-const showContextMenu = ref(false)
-const contextMenuStyle = ref({ top: '0px', left: '0px' })
-const contextMenuTarget = ref<any>(null)
 
 // 计算属性
 const databaseCount = computed(() => databaseStore.databases.length)
@@ -302,96 +244,14 @@ const selectMeasurement = (databaseName: string, measurementName: string) => {
   emit('measurement-selected', databaseName, measurementName)
 }
 
-const queryMeasurement = (databaseName: string, measurementName: string) => {
+const requestQuery = (databaseName: string, measurementName: string) => {
   emit('query-requested', databaseName, measurementName)
 }
 
-const showDatabaseMenu = (database: any) => {
-  contextMenuTarget.value = { type: 'database', data: database }
-  showContextMenu.value = true
-  // 设置菜单位置
-  const rect = event?.target?.getBoundingClientRect()
-  if (rect) {
-    contextMenuStyle.value = {
-      top: `${rect.bottom + 5}px`,
-      left: `${rect.left}px`
-    }
-  }
-}
-
-const showMeasurementMenu = (measurement: any) => {
-  contextMenuTarget.value = { type: 'measurement', data: measurement }
-  showContextMenu.value = true
-  // 设置菜单位置
-  const rect = event?.target?.getBoundingClientRect()
-  if (rect) {
-    contextMenuStyle.value = {
-      top: `${rect.bottom + 5}px`,
-      left: `${rect.left}px`
-    }
-  }
-}
-
-const handleContextMenuAction = async (action: string) => {
-  const target = contextMenuTarget.value
-  if (!target) return
-  
-  showContextMenu.value = false
-  
-  switch (action) {
-    case 'refresh':
-      await refreshDatabases()
-      break
-      
-    case 'query':
-      if (target.type === 'database') {
-        selectDatabase(target.data.name)
-      } else if (target.type === 'measurement') {
-        queryMeasurement(target.data.database, target.data.name)
-      }
-      break
-      
-    case 'edit':
-      ElMessage.info('编辑功能开发中...')
-      break
-      
-    case 'delete':
-      await handleDelete(target)
-      break
-  }
-}
-
-const handleDelete = async (target: any) => {
-  try {
-    const message = target.type === 'database' 
-      ? `确定要删除数据库 "${target.data.name}" 吗？此操作不可恢复。`
-      : `确定要删除测量值 "${target.data.name}" 吗？此操作不可恢复。`
-    
-    await ElMessageBox.confirm(message, '确认删除', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    if (target.type === 'database') {
-      await databaseStore.deleteDatabase(target.data.name)
-      ElMessage.success('数据库已删除')
-    } else {
-      await measurementStore.deleteMeasurement(target.data.name)
-      ElMessage.success('测量值已删除')
-    }
-    
-    await refreshDatabases()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败')
-    }
-  }
-}
-
-const handleDatabaseCreated = (database: any) => {
-  ElMessage.success(`数据库 "${database.name}" 创建成功`)
+const handleDatabaseCreated = (databaseName: string) => {
+  showCreateDialog.value = false
   refreshDatabases()
+  ElMessage.success(`数据库 ${databaseName} 创建成功`)
 }
 
 // 监听选中状态变化
@@ -401,19 +261,11 @@ watch(() => props.selectedDatabase, (newDatabase) => {
   }
 })
 
-// 点击外部关闭上下文菜单
-const handleClickOutside = () => {
-  showContextMenu.value = false
-}
-
 // 生命周期
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  refreshDatabases()
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
+  if (databaseStore.isConnected) {
+    refreshDatabases()
+  }
 })
 </script>
 
@@ -422,69 +274,109 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--ide-bg-secondary);
+  background-color: var(--ide-bg-primary);
 }
 
 .explorer-header {
-  padding: 10px;
-  border-bottom: 1px solid var(--ide-border);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background-color: var(--ide-bg-tertiary);
+  justify-content: space-between;
+  padding: var(--ide-spacing-sm) var(--ide-spacing-md);
+  border-bottom: 1px solid var(--ide-border);
+  background-color: var(--ide-bg-secondary);
 }
 
 .header-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 500;
+  gap: var(--ide-spacing-xs);
+  font-weight: 600;
   color: var(--ide-text-primary);
 }
 
 .header-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--ide-spacing-xs);
 }
 
 .explorer-search {
-  padding: 8px 10px;
+  padding: var(--ide-spacing-sm) var(--ide-spacing-md);
   border-bottom: 1px solid var(--ide-border);
+  background-color: var(--ide-bg-secondary);
 }
 
 .search-input {
   width: 100%;
-  font-size: 12px;
+  font-size: var(--ide-font-size-sm);
+  background-color: var(--ide-bg-primary);
+  border: 1px solid var(--ide-border);
+  color: var(--ide-text-primary);
+  font-weight: 500;
+}
+
+.search-input::placeholder {
+  color: var(--ide-text-secondary);
+  opacity: 1;
+  font-weight: 400;
+}
+
+.search-input:focus {
+  background-color: var(--ide-bg-secondary);
+  border-color: var(--ide-accent-primary);
+  color: var(--ide-text-primary);
+  font-weight: 500;
 }
 
 .explorer-tree {
   flex: 1;
   overflow-y: auto;
-  position: relative;
+  padding: var(--ide-spacing-sm);
+  background-color: var(--ide-bg-primary);
 }
 
 .tree-container {
-  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .tree-item-content {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--ide-spacing-xs);
   flex: 1;
   cursor: pointer;
-  padding: 2px 0;
+  padding: var(--ide-spacing-xs) var(--ide-spacing-sm);
+  border-radius: var(--ide-border-radius);
+  transition: all var(--ide-transition-fast);
+  background-color: var(--ide-bg-primary);
+  border: 1px solid transparent;
+  margin: 2px 0;
+}
+
+.tree-item-content:hover {
+  background-color: var(--ide-bg-hover);
+  border-color: var(--ide-border-light);
+  transform: translateX(2px);
 }
 
 .tree-item-name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--ide-font-size-sm);
   color: var(--ide-text-primary);
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .tree-item-count {
-  font-size: 11px;
-  color: var(--ide-text-secondary);
+  font-size: var(--ide-font-size-xs);
+  color: var(--ide-text-primary);
+  background-color: var(--ide-accent-primary);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .tree-item-actions {
@@ -498,66 +390,120 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-.measurement-item {
-  margin-left: 20px;
+.ide-tree-item.selected .tree-item-content {
+  background-color: var(--ide-accent-primary);
+  border-color: var(--ide-accent-secondary);
+  color: var(--ide-text-inverse);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
 }
 
-.context-menu {
-  position: fixed;
-  background-color: var(--ide-bg-secondary);
-  border: 1px solid var(--ide-border);
-  border-radius: var(--ide-border-radius);
-  box-shadow: var(--ide-shadow-lg);
-  z-index: 1000;
-  min-width: 150px;
-  overflow: hidden;
+.ide-tree-item.selected .tree-item-name {
+  color: var(--ide-text-inverse);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.context-menu-item {
-  padding: 8px 12px;
+.ide-tree-item.selected .tree-item-count {
+  color: var(--ide-text-inverse);
+  background-color: rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ide-tree-item.expanded > .tree-item-content {
+  background-color: var(--ide-bg-highlight);
+  border-color: var(--ide-border-light);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ide-tree-expand {
+  color: var(--ide-text-primary);
+  font-size: 12px;
+  transition: all var(--ide-transition-fast);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.ide-tree-expand:hover {
+  color: var(--ide-accent-primary);
+  background-color: var(--ide-bg-tertiary);
+  transform: scale(1.1);
+}
+
+.ide-tree-expand.expanded {
+  transform: rotate(90deg) scale(1.1);
+  color: var(--ide-accent-primary);
+}
+
+.ide-tree-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--ide-text-primary);
-  transition: background-color var(--ide-transition-fast);
-}
-
-.context-menu-item:hover {
-  background-color: var(--ide-bg-tertiary);
-}
-
-.context-menu-item.danger {
-  color: var(--ide-error);
-}
-
-.context-menu-item.danger:hover {
-  background-color: var(--ide-error);
+  justify-content: center;
+  font-size: 11px;
   color: white;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .explorer-header {
-    padding: 8px;
-  }
-  
-  .header-title {
-    font-size: 14px;
-  }
-  
-  .tree-item-name {
-    font-size: 12px;
-  }
-  
-  .context-menu {
-    min-width: 120px;
-  }
-  
-  .context-menu-item {
-    padding: 6px 10px;
-    font-size: 12px;
-  }
+.ide-tree-children {
+  margin-left: 24px;
+  border-left: 2px solid var(--ide-border);
+  padding-left: var(--ide-spacing-md);
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+/* 空状态样式 */
+.ide-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ide-spacing-xl);
+  color: var(--ide-text-secondary);
+  text-align: center;
+}
+
+.ide-empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--ide-spacing-md);
+  opacity: 0.6;
+}
+
+.ide-empty-text {
+  font-size: var(--ide-font-size-sm);
+  margin-bottom: var(--ide-spacing-md);
+}
+
+/* 加载状态样式 */
+.ide-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ide-spacing-xl);
+  color: var(--ide-text-secondary);
+}
+
+.ide-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--ide-border);
+  border-top: 2px solid var(--ide-accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--ide-spacing-sm);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style> 

@@ -49,6 +49,14 @@
                 连接
               </el-button>
               <el-button 
+                type="info" 
+                size="small"
+                @click.stop="testConnection(connection.id)"
+                :loading="testingId === connection.id"
+              >
+                测试
+              </el-button>
+              <el-button 
                 type="default" 
                 size="small"
                 @click.stop="editConnection(connection)"
@@ -114,6 +122,7 @@ const connectionStore = useConnectionStore()
 const showCreateDialog = ref(false)
 const editingConnection = ref<ConnectionProfile | null>(null)
 const connectingId = ref<string | null>(null)
+const testingId = ref<string | null>(null)
 
 // 计算属性
 const visible = computed({
@@ -144,6 +153,23 @@ const connectTo = async (connectionId: string) => {
     ElMessage.error(`连接失败: ${error.message || error}`)
   } finally {
     connectingId.value = null
+  }
+}
+
+const testConnection = async (connectionId: string) => {
+  try {
+    testingId.value = connectionId
+    const success = await connectionStore.testConnection(connectionId)
+    
+    if (success) {
+      ElMessage.success('连接测试成功')
+    } else {
+      ElMessage.error('连接测试失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(`连接测试失败: ${error.message || error}`)
+  } finally {
+    testingId.value = null
   }
 }
 

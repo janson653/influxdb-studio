@@ -1,97 +1,224 @@
 # InfluxDB Studio
 
-一个基于 Tauri + Vue 3 构建的跨平台 InfluxDB 桌面客户端，目前支持 InfluxDB v1.x，v2.x 和 v3.x 支持正在开发中。
+一个基于 Tauri + Vue 3 的现代化 InfluxDB 管理工具，提供直观的图形界面来管理 InfluxDB 数据库、执行查询和可视化数据。
 
-## ✨ 特性
+## 🚀 功能特性
 
-- 🚀 **跨平台支持**：Windows、macOS、Linux
-- 🔌 **多版本兼容**：目前支持 InfluxDB v1.x，v2.x 和 v3.x 支持正在开发中
-- 💻 **现代化界面**：基于 Vue 3 + Element Plus
-- 🔍 **智能查询**：Monaco Editor 提供语法高亮
-- 📊 **数据可视化**：内置图表和数据分析功能
-- 🔐 **安全连接**：支持多种认证方式
+### 核心功能
+- **数据库连接管理** - 支持 InfluxDB v1.x、v2.x、v3.x 版本
+- **数据库浏览器** - 可视化浏览数据库、测量值和标签
+- **SQL 编辑器** - 基于 Monaco Editor 的智能 SQL 编辑器
+- **查询结果展示** - 表格化展示查询结果，支持排序和分页
+- **查询历史** - 自动保存查询历史，支持快速重执行
+- **数据导出** - 支持查询结果导出为 JSON 格式
 
-## 🚀 快速开始
+### 技术特性
+- **现代化 UI** - 基于 Element Plus 的美观界面
+- **响应式设计** - 支持桌面和移动设备
+- **主题系统** - 支持浅色/深色主题切换
+- **快捷键支持** - 完整的键盘快捷键操作
+- **错误处理** - 完善的错误提示和处理机制
 
-### 环境要求
+## 📋 系统要求
 
-- Node.js 18+
+- **操作系统**: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+)
+- **内存**: 最少 4GB RAM
+- **存储**: 最少 500MB 可用空间
+- **网络**: 需要连接到 InfluxDB 服务器
+
+## 🛠️ 开发环境搭建
+
+### 前置要求
+- Node.js 18+ 
 - Rust 1.70+
 - pnpm (推荐) 或 npm
 
 ### 安装依赖
-
 ```bash
+# 克隆项目
+git clone https://github.com/your-username/influxdb-studio.git
+cd influxdb-studio
+
 # 安装前端依赖
 pnpm install
 
 # 安装 Rust 依赖
-cd src-tauri && cargo build
+cd src-tauri
+cargo build
+cd ..
 ```
 
-### 开发模式
-
+### 启动开发服务器
 ```bash
-# 启动开发服务器
+# 启动前端开发服务器
+pnpm dev
+
+# 启动 Tauri 开发模式
 pnpm tauri dev
 ```
 
-### 构建应用
+## 🐳 使用 Docker 启动测试环境
 
+### 启动 InfluxDB 测试服务
 ```bash
-# 构建所有平台
-pnpm tauri build
+# 启动 InfluxDB v1.x 服务
+docker-compose up influxdb-v1 -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs influxdb-v1
 ```
 
-## 📚 文档导航
+### 测试连接配置
+- **主机**: localhost
+- **端口**: 8086
+- **数据库**: testdb
+- **用户名**: (留空，匿名访问)
+- **密码**: (留空，匿名访问)
 
-### 开发文档
-- [技术架构](./docs/architecture.md) - 详细的技术架构和设计说明
-- [开发指南](./docs/development.md) - 开发环境搭建和开发流程
-- [API 文档](./docs/api.md) - 前后端接口说明
-- [开发计划](./docs/development-plan.md) - v2.x 和 v3.x 支持开发计划
+## 📖 使用指南
 
-### 部署文档
-- [发布指南](./docs/release.md) - 应用打包和发布流程
+### 1. 连接数据库
+1. 启动应用后，点击"管理连接"按钮
+2. 点击"新建连接"创建新的数据库连接
+3. 填写连接信息：
+   - 连接名称：给连接起一个易记的名字
+   - InfluxDB 版本：选择对应的版本
+   - 主机地址：InfluxDB 服务器地址
+   - 端口：InfluxDB 服务端口
+   - 数据库：要连接的数据库名称
+4. 点击"测试连接"验证连接是否正常
+5. 点击"创建"保存连接配置
 
-### 故障排除
-- [常见问题](./docs/troubleshooting.md) - 开发和生产环境问题解决
+### 2. 浏览数据库
+1. 连接成功后，左侧会显示数据库列表
+2. 点击数据库名称展开查看测量值
+3. 点击测量值名称查看详细信息
+4. 右键点击数据库或测量值查看更多操作
 
-## 🏗️ 项目结构
+### 3. 执行查询
+1. 在 SQL 编辑器中输入 InfluxQL 查询语句
+2. 选择要查询的数据库
+3. 点击"运行"按钮执行查询
+4. 在下方结果区域查看查询结果
 
+### 4. 常用查询示例
+
+#### 查看所有数据库
+```sql
+SHOW DATABASES
 ```
-influxdb-studio/
-├── src/                    # 前端源码 (Vue 3 + TypeScript)
-├── src-tauri/             # 后端源码 (Rust + Tauri)
-├── docs/                  # 项目文档
-└── scripts/               # 构建和部署脚本
+
+#### 查看数据库中的测量值
+```sql
+SHOW MEASUREMENTS
 ```
+
+#### 查询时间序列数据
+```sql
+SELECT * FROM "cpu_usage" WHERE time > now() - 1h
+```
+
+#### 聚合查询
+```sql
+SELECT mean(value) FROM "cpu_usage" 
+WHERE time > now() - 1h 
+GROUP BY time(5m), host
+```
+
+#### 插入数据
+```sql
+INSERT cpu_usage,host=server03,region=us-central value=0.75
+```
+
+## 🎨 界面预览
+
+### 主界面
+- 左侧：数据库浏览器
+- 中央：SQL 编辑器
+- 下方：查询结果展示
+
+### 功能区域
+- **顶部工具栏**：连接状态、项目选择
+- **数据库树**：数据库和测量值浏览
+- **编辑器标签页**：多标签页 SQL 编辑
+- **结果标签页**：表格、图表、输出日志
+
+## 🔧 配置说明
+
+### 连接配置
+支持以下 InfluxDB 版本：
+- **v1.x**: 传统版本，使用用户名/密码认证
+- **v2.x**: 新版本，使用 Token 认证 (开发中)
+- **v3.x**: 最新版本，兼容 v2.x (开发中)
+
+### 主题配置
+- 支持浅色和深色主题
+- 可自定义 IDE 风格界面
+- 响应式布局适配不同屏幕
+
+## 🐛 故障排除
+
+### 常见问题
+
+#### 连接失败
+1. 检查 InfluxDB 服务是否启动
+2. 验证主机地址和端口是否正确
+3. 确认防火墙设置允许连接
+4. 检查网络连接状态
+
+#### 查询执行失败
+1. 确认选择了正确的数据库
+2. 检查 InfluxQL 语法是否正确
+3. 验证测量值名称是否存在
+4. 查看错误日志获取详细信息
+
+#### 应用启动失败
+1. 检查 Node.js 和 Rust 版本
+2. 重新安装依赖：`pnpm install`
+3. 清理缓存：`pnpm clean`
+4. 查看控制台错误信息
+
+### 日志查看
+- 应用日志：查看浏览器开发者工具控制台
+- 后端日志：查看 Tauri 应用日志
+- 数据库日志：查看 InfluxDB 服务日志
 
 ## 🤝 贡献指南
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+### 开发流程
+1. Fork 项目到你的 GitHub 账户
+2. 创建功能分支：`git checkout -b feature/your-feature`
+3. 提交更改：`git commit -am 'Add some feature'`
+4. 推送分支：`git push origin feature/your-feature`
+5. 创建 Pull Request
+
+### 代码规范
+- 使用 TypeScript 进行类型检查
+- 遵循 ESLint 和 Prettier 配置
+- 编写单元测试覆盖新功能
+- 更新文档说明新功能
 
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-## 📋 版本支持
+## 🙏 致谢
 
-| InfluxDB 版本 | 支持状态 | 说明 |
-|--------------|---------|------|
-| v1.x | ✅ 完整支持 | 所有功能可用 |
-| v2.x | 🚧 开发中 | 预计 2-3 个月完成 |
-| v3.x | 📋 计划中 | 预计 4-6 个月完成 |
+- [Tauri](https://tauri.app/) - 跨平台桌面应用框架
+- [Vue 3](https://vuejs.org/) - 渐进式 JavaScript 框架
+- [Element Plus](https://element-plus.org/) - Vue 3 组件库
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - 代码编辑器
+- [InfluxDB](https://influxdata.com/) - 时间序列数据库
 
-详细开发计划请查看 [开发计划文档](./docs/development-plan.md)。
+## 📞 联系方式
 
-## 🔗 相关链接
+- 项目主页：https://github.com/your-username/influxdb-studio
+- 问题反馈：https://github.com/your-username/influxdb-studio/issues
+- 邮箱：your-email@example.com
 
-- [InfluxDB 官网](https://www.influxdata.com/)
-- [Tauri 框架](https://tauri.app/)
-- [Vue.js](https://vuejs.org/)
-- [Element Plus](https://element-plus.org/) 
+---
+
+**注意**: 本项目仍在积极开发中，部分功能可能不稳定。建议在生产环境使用前充分测试。 

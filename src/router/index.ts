@@ -10,12 +10,6 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'InfluxDB Studio' }
   },
   {
-    path: '/test',
-    name: 'Test',
-    component: () => import('../views/TestPage.vue'),
-    meta: { title: '测试页面' }
-  },
-  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/Settings.vue'),
