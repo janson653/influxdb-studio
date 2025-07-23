@@ -228,17 +228,17 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--geek-spacing-md);
+  margin-bottom: var(--ide-spacing-md);
 }
 
 .database-list__title {
   margin: 0;
-  font-size: var(--geek-font-size-md);
+  font-size: var(--ide-font-size-md);
   font-weight: 500;
 }
 
 .database-list__actions {
   display: flex;
-  gap: var(--geek-spacing-xs);
+  gap: var(--ide-spacing-xs);
 }
 </style>

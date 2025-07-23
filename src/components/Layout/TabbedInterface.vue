@@ -198,14 +198,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--geek-bg-primary);
+  background: var(--ide-bg-primary);
 }
 
 .tab-bar {
   display: flex;
   align-items: center;
-  background: var(--geek-bg-secondary);
-  border-bottom: 1px solid var(--geek-border);
+  background: var(--ide-bg-secondary);
+  border-bottom: 1px solid var(--ide-border);
   min-height: 36px;
 }
 
@@ -228,24 +228,24 @@ onUnmounted(() => {
   padding: 8px 12px;
   background: none;
   border: none;
-  color: var(--geek-text-secondary);
+  color: var(--ide-text-secondary);
   cursor: pointer;
   font-size: 13px;
   white-space: nowrap;
-  border-right: 1px solid var(--geek-border);
+  border-right: 1px solid var(--ide-border);
   transition: all 0.2s ease;
   position: relative;
 }
 
 .tab-button:hover {
-  background: var(--geek-bg-hover);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-hover);
+  color: var(--ide-text-primary);
 }
 
 .tab-button.active {
-  background: var(--geek-bg-primary);
-  color: var(--geek-text-primary);
-  border-bottom: 2px solid var(--geek-accent-primary);
+  background: var(--ide-bg-primary);
+  color: var(--ide-text-primary);
+  border-bottom: 2px solid var(--ide-accent-primary);
 }
 
 .tab-button.active::after {
@@ -255,7 +255,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 1px;
-  background: var(--geek-bg-primary);
+  background: var(--ide-bg-primary);
 }
 
 .tab-icon {
@@ -278,7 +278,7 @@ onUnmounted(() => {
   height: 16px;
   background: none;
   border: none;
-  color: var(--geek-text-secondary);
+  color: var(--ide-text-secondary);
   cursor: pointer;
   border-radius: 2px;
   transition: all 0.2s ease;
@@ -291,15 +291,15 @@ onUnmounted(() => {
 }
 
 .tab-close:hover {
-  background: var(--geek-bg-hover);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-hover);
+  color: var(--ide-text-primary);
 }
 
 .tab-actions {
   display: flex;
   align-items: center;
   padding: 0 8px;
-  border-left: 1px solid var(--geek-border);
+  border-left: 1px solid var(--ide-border);
 }
 
 .tab-content {
@@ -315,8 +315,8 @@ onUnmounted(() => {
 
 .tab-context-menu {
   position: fixed;
-  background: var(--geek-bg-secondary);
-  border: 1px solid var(--geek-border);
+  background: var(--ide-bg-secondary);
+  border: 1px solid var(--ide-border);
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 1000;
@@ -330,7 +330,7 @@ onUnmounted(() => {
   padding: 8px 12px;
   background: none;
   border: none;
-  color: var(--geek-text-primary);
+  color: var(--ide-text-primary);
   cursor: pointer;
   font-size: 13px;
   text-align: left;
@@ -338,6 +338,6 @@ onUnmounted(() => {
 }
 
 .context-menu-item:hover {
-  background: var(--geek-bg-hover);
+  background: var(--ide-bg-hover);
 }
 </style>

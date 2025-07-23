@@ -377,25 +377,25 @@ const themePresets = [
 // 更新主题
 const updateTheme = () => {
   const cssVars = {
-    '--geek-bg-primary': themeColors.bgPrimary,
-    '--geek-bg-secondary': themeColors.bgSecondary,
-    '--geek-text-primary': themeColors.textPrimary,
-    '--geek-text-secondary': themeColors.textSecondary,
-    '--geek-accent-primary': themeColors.accentPrimary,
-    '--geek-accent-green': themeColors.accentGreen,
-    '--geek-accent-orange': themeColors.accentOrange,
-    '--geek-border': themeColors.border,
-    '--geek-border-light': themeColors.borderLight,
-    '--geek-font-mono': themeFonts.mono,
-    '--geek-font-sans': themeFonts.sans,
-    '--geek-font-size-xs': `${themeFonts.sizeXs}px`,
-    '--geek-font-size-md': `${themeFonts.sizeMd}px`,
-    '--geek-font-size-lg': `${themeFonts.sizeLg}px`,
-    '--geek-spacing-xs': `${themeSpacing.xs}px`,
-    '--geek-spacing-md': `${themeSpacing.md}px`,
-    '--geek-spacing-lg': `${themeSpacing.lg}px`,
-    '--geek-border-radius': `${themeSpacing.borderRadius}px`,
-    '--geek-border-radius-small': `${themeSpacing.borderRadiusSmall}px`
+    '--ide-bg-primary': themeColors.bgPrimary,
+    '--ide-bg-secondary': themeColors.bgSecondary,
+    '--ide-text-primary': themeColors.textPrimary,
+    '--ide-text-secondary': themeColors.textSecondary,
+    '--ide-accent-primary': themeColors.accentPrimary,
+    '--ide-accent-green': themeColors.accentGreen,
+    '--ide-accent-orange': themeColors.accentOrange,
+    '--ide-border': themeColors.border,
+    '--ide-border-light': themeColors.borderLight,
+    '--ide-font-mono': themeFonts.mono,
+    '--ide-font-sans': themeFonts.sans,
+    '--ide-font-size-xs': `${themeFonts.sizeXs}px`,
+    '--ide-font-size-md': `${themeFonts.sizeMd}px`,
+    '--ide-font-size-lg': `${themeFonts.sizeLg}px`,
+    '--ide-spacing-xs': `${themeSpacing.xs}px`,
+    '--ide-spacing-md': `${themeSpacing.md}px`,
+    '--ide-spacing-lg': `${themeSpacing.lg}px`,
+    '--ide-border-radius': `${themeSpacing.borderRadius}px`,
+    '--ide-border-radius-small': `${themeSpacing.borderRadiusSmall}px`
   }
 
   Object.entries(cssVars).forEach(([key, value]) => {
@@ -517,8 +517,8 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--geek-bg-primary);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-primary);
+  color: var(--ide-text-primary);
 }
 
 .customizer-header {
@@ -526,8 +526,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--geek-border);
-  background: var(--geek-bg-secondary);
+  border-bottom: 1px solid var(--ide-border);
+  background: var(--ide-bg-secondary);
 }
 
 .customizer-header h3 {
@@ -560,8 +560,8 @@ onMounted(() => {
   margin: 0 0 16px 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--geek-text-primary);
-  border-bottom: 1px solid var(--geek-border);
+  color: var(--ide-text-primary);
+  border-bottom: 1px solid var(--ide-border);
   padding-bottom: 8px;
 }
 
@@ -585,19 +585,19 @@ onMounted(() => {
 .font-item label,
 .spacing-item label {
   font-size: 12px;
-  color: var(--geek-text-secondary);
+  color: var(--ide-text-secondary);
   font-weight: 500;
 }
 
 .color-value {
   font-size: 11px;
-  color: var(--geek-text-secondary);
-  font-family: var(--geek-font-mono);
+  color: var(--ide-text-secondary);
+  font-family: var(--ide-font-mono);
 }
 
 .unit {
   font-size: 12px;
-  color: var(--geek-text-secondary);
+  color: var(--ide-text-secondary);
   margin-left: 4px;
 }
 
@@ -613,19 +613,19 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 2px solid var(--geek-border);
+  border: 2px solid var(--ide-border);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .preset-item:hover {
-  border-color: var(--geek-accent-primary);
+  border-color: var(--ide-accent-primary);
 }
 
 .preset-item.active {
-  border-color: var(--geek-accent-primary);
-  background: var(--geek-bg-highlight);
+  border-color: var(--ide-accent-primary);
+  background: var(--ide-bg-highlight);
 }
 
 .preset-preview {
@@ -662,7 +662,7 @@ onMounted(() => {
 .preset-name {
   font-size: 12px;
   text-align: center;
-  color: var(--geek-text-primary);
+  color: var(--ide-text-primary);
 }
 
 .customizer-footer {
@@ -670,8 +670,8 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 8px;
   padding: 16px 20px;
-  border-top: 1px solid var(--geek-border);
-  background: var(--geek-bg-secondary);
+  border-top: 1px solid var(--ide-border);
+  background: var(--ide-bg-secondary);
 }
 
 /* 自定义滚动条 */
@@ -680,15 +680,15 @@ onMounted(() => {
 }
 
 .customizer-content::-webkit-scrollbar-track {
-  background: var(--geek-bg-primary);
+  background: var(--ide-bg-primary);
 }
 
 .customizer-content::-webkit-scrollbar-thumb {
-  background: var(--geek-border);
+  background: var(--ide-border);
   border-radius: 3px;
 }
 
 .customizer-content::-webkit-scrollbar-thumb:hover {
-  background: var(--geek-text-secondary);
+  background: var(--ide-text-secondary);
 }
 </style> 

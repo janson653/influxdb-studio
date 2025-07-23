@@ -270,10 +270,10 @@ const printShortcuts = () => {
 
 <style scoped>
 .shortcut-help-dialog {
-  --shortcut-bg: var(--geek-bg-secondary);
-  --shortcut-border: var(--geek-border);
-  --shortcut-text: var(--geek-text-primary);
-  --shortcut-key-bg: var(--geek-bg-tertiary);
+  --shortcut-bg: var(--ide-bg-secondary);
+  --shortcut-border: var(--ide-border);
+  --shortcut-text: var(--ide-text-primary);
+  --shortcut-key-bg: var(--ide-bg-tertiary);
 }
 
 .shortcut-content {
@@ -315,7 +315,7 @@ const printShortcuts = () => {
 }
 
 .shortcut-item:hover {
-  background: var(--geek-bg-highlight);
+  background: var(--ide-bg-highlight);
 }
 
 .shortcut-key {
@@ -323,9 +323,9 @@ const printShortcuts = () => {
   border: 1px solid var(--shortcut-border);
   border-radius: 3px;
   padding: 4px 8px;
-  font-family: var(--geek-font-mono);
+  font-family: var(--ide-font-mono);
   font-size: 12px;
-  color: var(--geek-accent-orange);
+  color: var(--ide-accent-orange);
   min-width: 120px;
   text-align: center;
   margin-right: 12px;
@@ -349,15 +349,15 @@ const printShortcuts = () => {
 }
 
 .shortcut-content::-webkit-scrollbar-track {
-  background: var(--geek-bg-primary);
+  background: var(--ide-bg-primary);
 }
 
 .shortcut-content::-webkit-scrollbar-thumb {
-  background: var(--geek-border);
+  background: var(--ide-border);
   border-radius: 3px;
 }
 
 .shortcut-content::-webkit-scrollbar-thumb:hover {
-  background: var(--geek-text-secondary);
+  background: var(--ide-text-secondary);
 }
 </style> 

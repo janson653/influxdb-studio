@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
-import './styles/dark-theme.css' // 引入自定义主题
+import './styles/ide-theme.css' // 引入IDE主题样式
 import App from './App.vue'
 import router from './router'
 import { useThemeStore } from './stores/themeStore'

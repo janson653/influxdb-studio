@@ -442,7 +442,7 @@ defineExpose({
     border-color: transparent;
   }
   50% {
-    border-color: var(--geek-accent-primary);
+    border-color: var(--ide-accent-primary);
   }
 }
 

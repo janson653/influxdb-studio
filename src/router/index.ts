@@ -1,28 +1,25 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import MainLayout from '../components/Layout/MainLayout.vue'
 
 // 路由配置
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'Layout',
-    component: MainLayout,
-    // 子路由现在用于在 MainLayout 的 <router-view> 中显示非核心页面
-    children: [
-      {
-        path: 'settings',
-        name: 'Settings',
-        component: () => import('../views/Settings.vue'),
-        meta: { title: '设置' }
-      },
-      // 主页，由 MainLayout 内部管理
-      {
-        path: '',
-        name: 'Home',
-        component: { template: '<div></div>' } 
-      }
-    ]
+    name: 'Home',
+    component: () => import('../views/Home.vue'),
+    meta: { title: 'InfluxDB Studio' }
+  },
+  {
+    path: '/test',
+    name: 'Test',
+    component: () => import('../views/TestPage.vue'),
+    meta: { title: '测试页面' }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('../views/Settings.vue'),
+    meta: { title: '设置' }
   }
 ]
 

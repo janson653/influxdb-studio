@@ -103,8 +103,8 @@ onUnmounted(() => {
 .panel-content {
   overflow: hidden;
   transition: width 0.2s ease;
-  background: var(--geek-bg-secondary);
-  border-right: 1px solid var(--geek-border);
+  background: var(--ide-bg-secondary);
+  border-right: 1px solid var(--ide-border);
 }
 
 .is-collapsed .panel-content {
@@ -151,10 +151,10 @@ onUnmounted(() => {
 }
 
 .resize-handle:hover {
-  background-color: var(--geek-accent-primary);
+  background-color: var(--ide-accent-primary);
 }
 
 .resize-handle:active {
-  background-color: var(--geek-accent-primary);
+  background-color: var(--ide-accent-primary);
 }
 </style>

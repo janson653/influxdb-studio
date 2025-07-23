@@ -204,14 +204,14 @@ onUnmounted(() => {
 
 .enhanced-tooltip {
   position: fixed;
-  background: var(--geek-bg-secondary);
-  border: 1px solid var(--geek-border);
+  background: var(--ide-bg-secondary);
+  border: 1px solid var(--ide-border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   padding: 12px;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--geek-text-primary);
+  color: var(--ide-text-primary);
   pointer-events: none;
   z-index: 9999;
   max-width: 300px;
@@ -225,7 +225,7 @@ onUnmounted(() => {
 .tooltip-title {
   font-weight: 600;
   margin-bottom: 6px;
-  color: var(--geek-text-highlight);
+  color: white;
   font-size: 14px;
 }
 
@@ -236,17 +236,17 @@ onUnmounted(() => {
 .tooltip-shortcut {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--geek-border);
+  border-top: 1px solid var(--ide-border);
 }
 
 .tooltip-shortcut kbd {
-  background: var(--geek-bg-tertiary);
-  border: 1px solid var(--geek-border);
+  background: var(--ide-bg-tertiary);
+  border: 1px solid var(--ide-border);
   border-radius: 3px;
   padding: 2px 6px;
-  font-family: var(--geek-font-mono);
+  font-family: var(--ide-font-mono);
   font-size: 11px;
-  color: var(--geek-accent-orange);
+  color: var(--ide-accent-orange);
 }
 
 .tooltip-arrow {
@@ -261,7 +261,7 @@ onUnmounted(() => {
   bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
-  border-top-color: var(--geek-bg-secondary);
+  border-top-color: var(--ide-bg-secondary);
   border-bottom: none;
 }
 
@@ -269,7 +269,7 @@ onUnmounted(() => {
   top: -6px;
   left: 50%;
   transform: translateX(-50%);
-  border-bottom-color: var(--geek-bg-secondary);
+  border-bottom-color: var(--ide-bg-secondary);
   border-top: none;
 }
 
@@ -277,7 +277,7 @@ onUnmounted(() => {
   right: -6px;
   top: 50%;
   transform: translateY(-50%);
-  border-left-color: var(--geek-bg-secondary);
+  border-left-color: var(--ide-bg-secondary);
   border-right: none;
 }
 
@@ -285,7 +285,7 @@ onUnmounted(() => {
   left: -6px;
   top: 50%;
   transform: translateY(-50%);
-  border-right-color: var(--geek-bg-secondary);
+  border-right-color: var(--ide-bg-secondary);
   border-left: none;
 }
 
@@ -304,9 +304,9 @@ onUnmounted(() => {
 }
 
 .tooltip-geek {
-  background: var(--geek-bg-secondary);
-  border-color: var(--geek-border);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-secondary);
+  border-color: var(--ide-border);
+  color: var(--ide-text-primary);
 }
 
 /* 尺寸样式 */
@@ -344,19 +344,19 @@ onUnmounted(() => {
 
 /* 特殊样式 */
 .tooltip-info {
-  border-left: 4px solid var(--geek-accent-blue);
+  border-left: 4px solid var(--ide-accent-blue);
 }
 
 .tooltip-success {
-  border-left: 4px solid var(--geek-accent-green);
+  border-left: 4px solid var(--ide-accent-green);
 }
 
 .tooltip-warning {
-  border-left: 4px solid var(--geek-accent-orange);
+  border-left: 4px solid var(--ide-accent-orange);
 }
 
 .tooltip-error {
-  border-left: 4px solid var(--geek-accent-red);
+  border-left: 4px solid var(--ide-accent-red);
 }
 
 /* 响应式设计 */
@@ -389,19 +389,19 @@ onUnmounted(() => {
 
 /* 工具提示内容样式 */
 .tooltip-content code {
-  background: var(--geek-bg-tertiary);
+  background: var(--ide-bg-tertiary);
   padding: 2px 4px;
   border-radius: 3px;
-  font-family: var(--geek-font-mono);
+  font-family: var(--ide-font-mono);
   font-size: 12px;
-  color: var(--geek-accent-orange);
+  color: var(--ide-accent-orange);
 }
 
 .tooltip-content pre {
-  background: var(--geek-bg-tertiary);
+  background: var(--ide-bg-tertiary);
   padding: 8px;
   border-radius: 4px;
-  font-family: var(--geek-font-mono);
+  font-family: var(--ide-font-mono);
   font-size: 11px;
   overflow-x: auto;
   margin: 8px 0;
@@ -418,7 +418,7 @@ onUnmounted(() => {
 
 /* 工具提示链接样式 */
 .tooltip-content a {
-  color: var(--geek-accent-primary);
+  color: var(--ide-accent-primary);
   text-decoration: none;
 }
 
@@ -437,12 +437,12 @@ onUnmounted(() => {
 .tooltip-content th,
 .tooltip-content td {
   padding: 4px 8px;
-  border: 1px solid var(--geek-border);
+  border: 1px solid var(--ide-border);
   text-align: left;
 }
 
 .tooltip-content th {
-  background: var(--geek-bg-tertiary);
+  background: var(--ide-bg-tertiary);
   font-weight: 600;
 }
 </style> 

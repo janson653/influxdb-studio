@@ -82,8 +82,8 @@ watch(collapsed, (newValue) => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--geek-bg-secondary);
-  border-right: 1px solid var(--geek-border);
+  background: var(--ide-bg-secondary);
+  border-right: 1px solid var(--ide-border);
   transition: all 0.2s ease;
   min-width: 40px;
 }
@@ -98,15 +98,15 @@ watch(collapsed, (newValue) => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--geek-border);
-  background: var(--geek-bg-tertiary);
+  border-bottom: 1px solid var(--ide-border);
+  background: var(--ide-bg-tertiary);
   min-height: 40px;
 }
 
 .sidebar-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--geek-text-primary);
+  color: var(--ide-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -116,7 +116,7 @@ watch(collapsed, (newValue) => {
 .collapse-button {
   background: none;
   border: none;
-  color: var(--geek-text-secondary);
+  color: var(--ide-text-secondary);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -128,8 +128,8 @@ watch(collapsed, (newValue) => {
 }
 
 .collapse-button:hover {
-  background: var(--geek-bg-hover);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-hover);
+  color: var(--ide-text-primary);
 }
 
 .collapse-icon {
@@ -147,9 +147,9 @@ watch(collapsed, (newValue) => {
 }
 
 .sidebar-footer {
-  border-top: 1px solid var(--geek-border);
+  border-top: 1px solid var(--ide-border);
   padding: 8px 12px;
-  background: var(--geek-bg-tertiary);
+  background: var(--ide-bg-tertiary);
 }
 
 /* Custom scrollbar for sidebar content */
@@ -158,15 +158,15 @@ watch(collapsed, (newValue) => {
 }
 
 .sidebar-content::-webkit-scrollbar-track {
-  background: var(--geek-bg-secondary);
+  background: var(--ide-bg-secondary);
 }
 
 .sidebar-content::-webkit-scrollbar-thumb {
-  background: var(--geek-border);
+  background: var(--ide-border);
   border-radius: 3px;
 }
 
 .sidebar-content::-webkit-scrollbar-thumb:hover {
-  background: var(--geek-text-secondary);
+  background: var(--ide-text-secondary);
 }
 </style>

@@ -157,25 +157,25 @@ const handleChildContextMenu = (event: MouseEvent, node: any) => {
 
 <style>
 .geek-tree-node {
-  font-size: var(--geek-font-size-sm);
+  font-size: 12px;
 }
 
 .geek-tree-node__content {
   display: flex;
   align-items: center;
   height: 24px;
-  padding-right: var(--geek-spacing-md);
+  padding-right: var(--ide-spacing-md);
   cursor: pointer;
-  transition: background-color var(--geek-transition-fast);
+  transition: background-color var(--ide-transition-fast);
 }
 
 .geek-tree-node__content:hover {
-  background-color: var(--geek-bg-highlight);
+  background-color: var(--ide-bg-highlight);
 }
 
 .geek-tree-node__content--selected {
-  background-color: var(--geek-accent-green);
-  color: var(--geek-text-highlight);
+  background-color: var(--ide-accent-green);
+  color: white;
 }
 
 .geek-tree-node__expand-icon,
@@ -185,11 +185,11 @@ const handleChildContextMenu = (event: MouseEvent, node: any) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: var(--geek-spacing-xs);
+  margin-right: var(--ide-spacing-xs);
 }
 
 .geek-tree-node__icon {
-  margin-right: var(--geek-spacing-xs);
+  margin-right: var(--ide-spacing-xs);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,12 +203,12 @@ const handleChildContextMenu = (event: MouseEvent, node: any) => {
 }
 
 .geek-tree-node__count {
-  color: var(--geek-text-secondary);
-  font-size: var(--geek-font-size-xs);
-  margin-left: var(--geek-spacing-xs);
+  color: var(--ide-text-secondary);
+  font-size: 11px;
+  margin-left: var(--ide-spacing-xs);
 }
 
 .geek-tree-node__children {
-  margin-left: var(--geek-spacing-md);
+  margin-left: var(--ide-spacing-md);
 }
 </style>

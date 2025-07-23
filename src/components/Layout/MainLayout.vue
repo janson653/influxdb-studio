@@ -255,8 +255,8 @@ onUnmounted(() => {
 .main-layout {
   display: flex;
   height: 100vh;
-  background: var(--geek-bg-primary);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-primary);
+  color: var(--ide-text-primary);
 }
 
 .main-content {
@@ -273,7 +273,7 @@ onUnmounted(() => {
 
 .bottom-panel-container {
   position: relative;
-  border-top: 1px solid var(--geek-border);
+  border-top: 1px solid var(--ide-border);
 }
 
 .bottom-panel-resize-handle {
@@ -289,11 +289,11 @@ onUnmounted(() => {
 }
 
 .bottom-panel-resize-handle:hover {
-  background-color: var(--geek-accent-primary);
+  background-color: var(--ide-accent-primary);
 }
 
 .bottom-panel {
-  background: var(--geek-bg-secondary);
+  background: var(--ide-bg-secondary);
 }
 
 .bottom-panel-collapsed {
@@ -301,8 +301,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 32px;
-  background: var(--geek-bg-secondary);
-  border-top: 1px solid var(--geek-border);
+  background: var(--ide-bg-secondary);
+  border-top: 1px solid var(--ide-border);
 }
 
 .panel-toggle-button,
@@ -312,7 +312,7 @@ onUnmounted(() => {
   gap: 4px;
   background: none;
   border: none;
-  color: var(--geek-text-secondary);
+  color: var(--ide-text-secondary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
@@ -322,8 +322,8 @@ onUnmounted(() => {
 
 .panel-toggle-button:hover,
 .panel-expand-button:hover {
-  background: var(--geek-bg-hover);
-  color: var(--geek-text-primary);
+  background: var(--ide-bg-hover);
+  color: var(--ide-text-primary);
 }
 
 .panel-expand-button {
