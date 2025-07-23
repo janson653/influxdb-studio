@@ -62,11 +62,18 @@ export const useMeasurementStore = defineStore('measurement', {
     async fetchMeasurementsForDatabase(database: string) {
       const connectionStore = useConnectionStore();
       const activeConnection = connectionStore.activeConnectionConfig;
-      const connectionId = activeConnection?.id ? 
-        connectionStore.connectionStatus[activeConnection.id]?.backendConnectionId : null;
+      
+      if (!activeConnection?.id) {
+        this.error = 'No active connection';
+        return;
+      }
+      
+      const connectionStatus = connectionStore.connectionStatus[activeConnection.id];
+      const connectionId = connectionStatus?.backendConnectionId;
 
       if (!connectionId) {
-        this.error = 'No active connection';
+        this.error = 'No backend connection ID';
+        console.error('Missing backend connection ID for connection:', activeConnection.id);
         return;
       }
 
@@ -107,12 +114,19 @@ export const useMeasurementStore = defineStore('measurement', {
       const databaseStore = useDatabaseStore();
       
       const activeConnection = connectionStore.activeConnectionConfig;
-      const connectionId = activeConnection?.id ? 
-        connectionStore.connectionStatus[activeConnection.id]?.backendConnectionId : null;
+      
+      if (!activeConnection?.id) {
+        this.error = 'No active connection';
+        return null;
+      }
+      
+      const connectionStatus = connectionStore.connectionStatus[activeConnection.id];
+      const connectionId = connectionStatus?.backendConnectionId;
       const database = databaseStore.getSelectedDatabase;
 
       if (!connectionId) {
-        this.error = 'No active connection';
+        this.error = 'No backend connection ID';
+        console.error('Missing backend connection ID for connection:', activeConnection.id);
         return null;
       }
 

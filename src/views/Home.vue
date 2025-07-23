@@ -157,19 +157,17 @@ const outputLogs = ref<any[]>([])
 
 // 计算属性
 const isConnected = computed(() => {
-  // 检查是否有活跃连接且状态为已连接
-  const hasActiveConnection = connectionStore.activeConnectionId !== null
-  const isConnectionActive = connectionStore.isConnected
+  // 直接使用connectionStore的isConnected状态
+  const connected = connectionStore.isConnected
   
   console.log('连接状态检查:', {
-    hasActiveConnection,
-    isConnectionActive,
+    connected,
     activeConnectionId: connectionStore.activeConnectionId,
     connectionStatus: connectionStore.connectionStatus,
     connectionsCount: connectionStore.connections.length
   })
   
-  return hasActiveConnection && isConnectionActive
+  return connected
 })
 
 // 调试信息

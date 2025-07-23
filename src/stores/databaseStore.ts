@@ -45,10 +45,19 @@ export const useDatabaseStore = defineStore('database', {
   actions: {
     async fetchDatabases() {
       const connectionStore = useConnectionStore();
-      const connectionId = connectionStore.activeConnectionConfig?.id;
+      const activeConnection = connectionStore.activeConnectionConfig;
+      
+      if (!activeConnection?.id) {
+        this.error = 'No active connection';
+        return;
+      }
+      
+      const connectionStatus = connectionStore.connectionStatus[activeConnection.id];
+      const connectionId = connectionStatus?.backendConnectionId;
 
       if (!connectionId) {
-        this.error = 'No active connection';
+        this.error = 'No backend connection ID';
+        console.error('Missing backend connection ID for connection:', activeConnection.id);
         return;
       }
 
@@ -79,10 +88,19 @@ export const useDatabaseStore = defineStore('database', {
 
     async fetchDatabaseInfo(databaseName: string) {
       const connectionStore = useConnectionStore();
-      const connectionId = connectionStore.activeConnectionConfig?.id;
+      const activeConnection = connectionStore.activeConnectionConfig;
+      
+      if (!activeConnection?.id) {
+        this.error = 'No active connection';
+        return null;
+      }
+      
+      const connectionStatus = connectionStore.connectionStatus[activeConnection.id];
+      const connectionId = connectionStatus?.backendConnectionId;
 
       if (!connectionId) {
-        this.error = 'No active connection';
+        this.error = 'No backend connection ID';
+        console.error('Missing backend connection ID for connection:', activeConnection.id);
         return null;
       }
 
@@ -124,10 +142,19 @@ export const useDatabaseStore = defineStore('database', {
 
     async createDatabase(databaseName: string, retentionPolicy?: RetentionPolicy) {
       const connectionStore = useConnectionStore();
-      const connectionId = connectionStore.activeConnectionConfig?.id;
+      const activeConnection = connectionStore.activeConnectionConfig;
+      
+      if (!activeConnection?.id) {
+        this.error = 'No active connection';
+        return false;
+      }
+      
+      const connectionStatus = connectionStore.connectionStatus[activeConnection.id];
+      const connectionId = connectionStatus?.backendConnectionId;
 
       if (!connectionId) {
-        this.error = 'No active connection';
+        this.error = 'No backend connection ID';
+        console.error('Missing backend connection ID for connection:', activeConnection.id);
         return false;
       }
 
@@ -164,10 +191,19 @@ export const useDatabaseStore = defineStore('database', {
 
     async deleteDatabase(databaseName: string) {
       const connectionStore = useConnectionStore();
-      const connectionId = connectionStore.activeConnectionConfig?.id;
+      const activeConnection = connectionStore.activeConnectionConfig;
+      
+      if (!activeConnection?.id) {
+        this.error = 'No active connection';
+        return false;
+      }
+      
+      const connectionStatus = connectionStore.connectionStatus[activeConnection.id];
+      const connectionId = connectionStatus?.backendConnectionId;
 
       if (!connectionId) {
-        this.error = 'No active connection';
+        this.error = 'No backend connection ID';
+        console.error('Missing backend connection ID for connection:', activeConnection.id);
         return false;
       }
 

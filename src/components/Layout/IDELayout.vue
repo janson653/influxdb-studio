@@ -564,7 +564,7 @@ defineExpose({
 
 /* 左侧数据库浏览器 */
 .database-explorer {
-  width: 280px;
+  width: 350px;
   background-color: var(--ide-bg-secondary);
   border-right: 1px solid var(--ide-border);
   display: flex;

@@ -25,8 +25,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  initialWidth: 300,
-  minWidth: 200,
+  initialWidth: 350,
+  minWidth: 250,
   maxWidth: 800,
   resizable: true,
   collapsed: false,

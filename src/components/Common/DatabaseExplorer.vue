@@ -39,6 +39,19 @@
 
     <!-- 数据库树 -->
     <div class="explorer-tree">
+      <!-- 调试信息 -->
+      <div class="debug-info" style="padding: 8px; font-size: 10px; color: var(--ide-text-tertiary); border-bottom: 1px solid var(--ide-border);">
+        <div>数据库数量: {{ databaseStore.databases.length }}</div>
+        <div>测量值数量: {{ measurementStore.measurements.length }}</div>
+        <div>展开的数据库: {{ Array.from(expandedDatabases).join(', ') || '无' }}</div>
+        <div>活跃连接: {{ connectionStore.activeConnectionId || '无' }}</div>
+        <div>连接状态: {{ connectionStore.connectionStatus[connectionStore.activeConnectionId || '']?.status || '无' }}</div>
+        <div>后端连接ID: {{ connectionStore.connectionStatus[connectionStore.activeConnectionId || '']?.backendConnectionId || '无' }}</div>
+        <div>isConnected: {{ connectionStore.isConnected }}</div>
+        <div>数据库加载状态: {{ databaseStore.loading ? '加载中' : '已完成' }}</div>
+        <div>数据库错误: {{ databaseStore.error || '无' }}</div>
+      </div>
+      
       <div v-if="isLoading" class="ide-loading">
         <div class="ide-loading-spinner"></div>
         <span>加载中...</span>
@@ -62,7 +75,7 @@
         <div 
           v-for="database in filteredDatabases" 
           :key="database.name"
-          class="ide-tree-item"
+          class="database-explorer-item database-item"
           :class="{ 
             'selected': selectedDatabase === database.name,
             'expanded': expandedDatabases.has(database.name)
@@ -78,8 +91,8 @@
             </span>
             <span class="ide-tree-icon ide-icon-database"></span>
             <span class="tree-item-name">{{ database.name }}</span>
-            <span class="tree-item-count" v-if="database.measurements">
-              ({{ database.measurements.length }})
+            <span class="tree-item-count" v-if="getDatabaseMeasurements(database.name).length > 0">
+              ({{ getDatabaseMeasurements(database.name).length }})
             </span>
           </div>
           
@@ -95,11 +108,11 @@
           </div>
           
           <!-- 测量值列表 -->
-          <div v-if="expandedDatabases.has(database.name) && database.measurements" class="ide-tree-children">
+          <div v-if="expandedDatabases.has(database.name)" class="database-explorer-children">
             <div 
-              v-for="measurement in database.measurements" 
+              v-for="measurement in getDatabaseMeasurements(database.name)" 
               :key="measurement.name"
-              class="ide-tree-item"
+              class="database-explorer-item measurement-item"
               :class="{ 'selected': selectedMeasurement === measurement.name }"
               @click="selectMeasurement(database.name, measurement.name)"
             >
@@ -137,6 +150,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useDatabaseStore } from '../../stores/databaseStore'
 import { useMeasurementStore } from '../../stores/measurementStore'
+import { useConnectionStore } from '../../stores/connectionStore'
 import CreateDatabaseDialog from './Dialog/CreateDatabaseDialog.vue'
 
 // Props
@@ -160,6 +174,7 @@ const emit = defineEmits<{
 // Stores
 const databaseStore = useDatabaseStore()
 const measurementStore = useMeasurementStore()
+const connectionStore = useConnectionStore()
 
 // 响应式数据
 const searchQuery = ref('')
@@ -183,17 +198,19 @@ const filteredDatabases = computed(() => {
     }
     
     // 搜索测量值名称
-    if (db.measurements) {
-      return db.measurements.some(m => m.name.toLowerCase().includes(query))
-    }
-    
-    return false
+    const dbMeasurements = measurementStore.measurements.filter(m => m.database === db.name)
+    return dbMeasurements.some(m => m.name.toLowerCase().includes(query))
   })
 })
 
+// 获取数据库的测量值
+const getDatabaseMeasurements = (databaseName: string) => {
+  return measurementStore.measurements.filter(m => m.database === databaseName)
+}
+
 // 方法
 const refreshDatabases = async () => {
-  if (!databaseStore.isConnected) {
+  if (!connectionStore.isConnected) {
     ElMessage.warning('请先连接数据库')
     return
   }
@@ -215,7 +232,7 @@ const filterDatabases = () => {
     const query = searchQuery.value.toLowerCase()
     filteredDatabases.value.forEach(db => {
       if (db.name.toLowerCase().includes(query) || 
-          db.measurements?.some(m => m.name.toLowerCase().includes(query))) {
+          getDatabaseMeasurements(db.name).some(m => m.name.toLowerCase().includes(query))) {
         expandedDatabases.value.add(db.name)
       }
     })
@@ -223,13 +240,20 @@ const filterDatabases = () => {
 }
 
 const toggleDatabase = async (databaseName: string) => {
+  console.log('切换数据库展开状态:', databaseName)
+  
   if (expandedDatabases.value.has(databaseName)) {
     expandedDatabases.value.delete(databaseName)
+    console.log('折叠数据库:', databaseName)
   } else {
     expandedDatabases.value.add(databaseName)
+    console.log('展开数据库:', databaseName)
+    
     // 加载测量值
     try {
-      await measurementStore.fetchMeasurementsForDatabase(databaseName)
+      console.log('开始加载测量值:', databaseName)
+      const measurements = await measurementStore.fetchMeasurementsForDatabase(databaseName)
+      console.log('测量值加载完成:', databaseName, measurements)
     } catch (error) {
       console.error('加载测量值失败:', error)
     }
@@ -261,9 +285,22 @@ watch(() => props.selectedDatabase, (newDatabase) => {
   }
 })
 
+// 监听连接状态变化
+watch(() => connectionStore.isConnected, (connected) => {
+  if (connected) {
+    console.log('连接状态变为已连接，自动刷新数据库列表')
+    refreshDatabases()
+  } else {
+    console.log('连接状态变为未连接，清空数据库列表')
+    databaseStore.databases = []
+    measurementStore.measurements = []
+    expandedDatabases.value.clear()
+  }
+})
+
 // 生命周期
 onMounted(() => {
-  if (databaseStore.isConnected) {
+  if (connectionStore.isConnected) {
     refreshDatabases()
   }
 })
@@ -337,7 +374,9 @@ onMounted(() => {
 .tree-container {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  padding: var(--ide-spacing-xs);
+  margin-left: 0;
 }
 
 .tree-item-content {
@@ -412,8 +451,20 @@ onMounted(() => {
 
 .ide-tree-item.expanded > .tree-item-content {
   background-color: var(--ide-bg-highlight);
-  border-color: var(--ide-border-light);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  border-color: var(--ide-accent-primary);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
+  position: relative;
+}
+
+.ide-tree-item.expanded > .tree-item-content::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, var(--ide-accent-primary), transparent);
+  border-radius: 1px;
 }
 
 .ide-tree-expand {
@@ -452,12 +503,132 @@ onMounted(() => {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.ide-tree-children {
-  margin-left: 24px;
+.database-explorer-children {
+  margin-left: 20px;
   border-left: 2px solid var(--ide-border);
-  padding-left: var(--ide-spacing-md);
-  margin-top: 4px;
-  margin-bottom: 4px;
+  padding-left: var(--ide-spacing-sm);
+  margin-top: 6px;
+  margin-bottom: 6px;
+  position: relative;
+  background-color: var(--ide-bg-primary);
+  border-radius: var(--ide-border-radius);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.database-explorer-children::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--ide-accent-primary), var(--ide-border));
+  border-radius: 1px;
+}
+
+/* 测量值项样式 */
+.database-explorer-item.measurement-item {
+  margin-bottom: 3px;
+  border-radius: var(--ide-border-radius);
+  transition: all var(--ide-transition-fast);
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.database-explorer-item.measurement-item .tree-item-content {
+  background-color: var(--ide-bg-secondary);
+  border: 1px solid var(--ide-border-light);
+  margin: 1px 0;
+  padding: var(--ide-spacing-xs) var(--ide-spacing-sm);
+  border-radius: var(--ide-border-radius);
+  transition: all var(--ide-transition-fast);
+  margin-left: 0;
+  padding-left: var(--ide-spacing-sm);
+  position: relative;
+}
+
+.database-explorer-item.measurement-item .tree-item-content:hover {
+  background-color: var(--ide-bg-hover);
+  border-color: var(--ide-accent-primary);
+  transform: translateX(2px);
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.15);
+}
+
+.database-explorer-item.measurement-item .tree-item-name {
+  font-size: var(--ide-font-size-sm);
+  color: var(--ide-text-primary);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.database-explorer-item.measurement-item .ide-tree-icon {
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  background-color: var(--ide-accent-orange);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.database-explorer-item.measurement-item.selected .tree-item-content {
+  background-color: var(--ide-accent-primary);
+  border-color: var(--ide-accent-secondary);
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
+}
+
+.database-explorer-item.measurement-item.selected .tree-item-name {
+  color: var(--ide-text-inverse);
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 数据库项样式 */
+.database-explorer-item.database-item {
+  margin-bottom: 2px;
+  border-radius: var(--ide-border-radius);
+  transition: all var(--ide-transition-fast);
+}
+
+.database-explorer-item.database-item .tree-item-content {
+  background-color: var(--ide-bg-primary);
+  border: 1px solid transparent;
+  margin: 1px 0;
+  padding: var(--ide-spacing-xs) var(--ide-spacing-sm);
+  border-radius: var(--ide-border-radius);
+  transition: all var(--ide-transition-fast);
+  position: relative;
+}
+
+.database-explorer-item.database-item .tree-item-content:hover {
+  background-color: var(--ide-bg-hover);
+  border-color: var(--ide-border-light);
+  transform: translateX(1px);
+}
+
+.database-explorer-item.database-item.expanded .tree-item-content {
+  background-color: var(--ide-bg-highlight);
+  border-color: var(--ide-accent-primary);
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.1);
+}
+
+.database-explorer-item.database-item.selected .tree-item-content {
+  background-color: var(--ide-accent-primary);
+  border-color: var(--ide-accent-secondary);
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
+}
+
+.database-explorer-item.database-item.selected .tree-item-name {
+  color: var(--ide-text-inverse);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.database-explorer-item.database-item .ide-tree-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  background-color: var(--ide-accent-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* 空状态样式 */
